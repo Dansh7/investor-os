@@ -53,89 +53,91 @@ const OBJ_TYPE_LABEL: Record<string, string> = {
   income_yield:      'Income Yield',
 }
 
+const SECTION_LABEL_STYLE: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '0.10em',
+  color: '#555',
+  marginBottom: 10,
+}
+
 export function PolicyWidget({ policy, rules, objectives }: Props) {
   const activeRules = rules.filter(r => r.is_active !== false)
   const sorted = [...activeRules].sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
   const sortedObj = [...objectives].sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
-
   const hasData = policy || activeRules.length > 0 || objectives.length > 0
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800">
-        <h2 className="text-sm font-semibold">Portfolio Policy</h2>
+    <div className="rounded-xl overflow-hidden" style={{ background: '#111111', border: '1px solid #232323' }}>
+      <div className="px-5 py-3.5" style={{ borderBottom: '1px solid #232323' }}>
+        <h2 className="text-sm font-semibold text-white">Portfolio Policy</h2>
       </div>
 
       {!hasData ? (
-        <p className="px-5 py-8 text-center text-sm text-zinc-400">No policy defined — run Phase A seed</p>
+        <p className="px-5 py-8 text-center text-sm" style={{ color: '#555' }}>No policy defined — run Phase A seed</p>
       ) : (
-        <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-          {/* Core guardrails */}
+        <div>
           {policy && (
-            <div className="px-5 py-4">
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Guardrails</p>
+            <div className="px-5 py-4" style={{ borderBottom: '1px solid #1e1e1e' }}>
+              <p style={SECTION_LABEL_STYLE}>Guardrails</p>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                 {policy.max_single_position_pct != null && (
                   <>
-                    <span className="text-zinc-500 dark:text-zinc-400">Max position</span>
-                    <span className="font-medium text-zinc-800 dark:text-zinc-200 tabular-nums">{policy.max_single_position_pct}%</span>
+                    <span style={{ color: '#666' }}>Max position</span>
+                    <span className="font-medium tabular-nums text-white">{policy.max_single_position_pct}%</span>
                   </>
                 )}
                 {policy.max_sector_concentration_pct != null && (
                   <>
-                    <span className="text-zinc-500 dark:text-zinc-400">Max sector</span>
-                    <span className="font-medium text-zinc-800 dark:text-zinc-200 tabular-nums">{policy.max_sector_concentration_pct}%</span>
+                    <span style={{ color: '#666' }}>Max sector</span>
+                    <span className="font-medium tabular-nums text-white">{policy.max_sector_concentration_pct}%</span>
                   </>
                 )}
                 {policy.min_cash_pct != null && (
                   <>
-                    <span className="text-zinc-500 dark:text-zinc-400">Min cash</span>
-                    <span className="font-medium text-zinc-800 dark:text-zinc-200 tabular-nums">{policy.min_cash_pct}%</span>
+                    <span style={{ color: '#666' }}>Min cash</span>
+                    <span className="font-medium tabular-nums text-white">{policy.min_cash_pct}%</span>
                   </>
                 )}
                 {policy.max_cash_pct != null && (
                   <>
-                    <span className="text-zinc-500 dark:text-zinc-400">Max cash</span>
-                    <span className="font-medium text-zinc-800 dark:text-zinc-200 tabular-nums">{policy.max_cash_pct}%</span>
+                    <span style={{ color: '#666' }}>Max cash</span>
+                    <span className="font-medium tabular-nums text-white">{policy.max_cash_pct}%</span>
                   </>
                 )}
                 {policy.rebalance_frequency && (
                   <>
-                    <span className="text-zinc-500 dark:text-zinc-400">Rebalance</span>
-                    <span className="font-medium text-zinc-800 dark:text-zinc-200">{policy.rebalance_frequency}</span>
+                    <span style={{ color: '#666' }}>Rebalance</span>
+                    <span className="font-medium text-white">{policy.rebalance_frequency}</span>
                   </>
                 )}
               </div>
             </div>
           )}
 
-          {/* Playbook rules */}
           {sorted.length > 0 && (
-            <div className="px-5 py-4">
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Playbook Rules</p>
-              <div className="space-y-2">
+            <div className="px-5 py-4" style={{ borderBottom: sortedObj.length > 0 ? '1px solid #1e1e1e' : 'none' }}>
+              <p style={SECTION_LABEL_STYLE}>Playbook Rules</p>
+              <div className="space-y-2.5">
                 {sorted.map(rule => (
                   <div key={rule.id} className="flex items-start gap-2">
-                    <span className="shrink-0 text-zinc-300 dark:text-zinc-700 mt-0.5">—</span>
+                    <span style={{ color: '#333', marginTop: 2, flexShrink: 0 }}>—</span>
                     <div>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        <span className="text-xs font-medium text-white">
                           {RULE_TYPE_LABEL[rule.rule_type] ?? rule.rule_type}
                         </span>
                         {rule.threshold_pct != null && (
-                          <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
-                            {rule.threshold_pct}%
-                          </span>
+                          <span className="text-xs tabular-nums" style={{ color: '#666' }}>{rule.threshold_pct}%</span>
                         )}
                         {rule.threshold_value != null && rule.threshold_pct == null && (
-                          <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
-                            {rule.threshold_value}
-                          </span>
+                          <span className="text-xs tabular-nums" style={{ color: '#666' }}>{rule.threshold_value}</span>
                         )}
                       </div>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-snug">{rule.description}</p>
+                      <p className="text-xs leading-snug mt-0.5" style={{ color: '#9a9a9a' }}>{rule.description}</p>
                       {rule.action_required && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">→ {rule.action_required}</p>
+                        <p className="text-xs mt-0.5" style={{ color: '#f5a623' }}>→ {rule.action_required}</p>
                       )}
                     </div>
                   </div>
@@ -144,25 +146,24 @@ export function PolicyWidget({ policy, rules, objectives }: Props) {
             </div>
           )}
 
-          {/* Objectives */}
           {sortedObj.length > 0 && (
             <div className="px-5 py-4">
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Objectives</p>
-              <div className="space-y-2">
+              <p style={SECTION_LABEL_STYLE}>Objectives</p>
+              <div className="space-y-2.5">
                 {sortedObj.map(obj => (
                   <div key={obj.id} className="flex items-start gap-2">
-                    <span className="shrink-0 text-zinc-300 dark:text-zinc-700 mt-0.5">—</span>
+                    <span style={{ color: '#333', marginTop: 2, flexShrink: 0 }}>—</span>
                     <div>
-                      <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      <span className="text-xs font-medium text-white">
                         {OBJ_TYPE_LABEL[obj.objective_type] ?? obj.objective_type}
                         {obj.target_value != null && (
-                          <span className="ml-1 font-normal text-zinc-400 dark:text-zinc-500 tabular-nums">
+                          <span className="ml-1 font-normal tabular-nums" style={{ color: '#666' }}>
                             {obj.target_value}
                             {['annual_return', 'max_drawdown', 'volatility_target', 'income_yield'].includes(obj.objective_type) ? '%' : ''}
                           </span>
                         )}
                       </span>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-snug">{obj.description}</p>
+                      <p className="text-xs leading-snug mt-0.5" style={{ color: '#9a9a9a' }}>{obj.description}</p>
                     </div>
                   </div>
                 ))}

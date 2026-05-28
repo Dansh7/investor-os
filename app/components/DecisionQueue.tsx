@@ -35,81 +35,52 @@ interface ClusteredItem {
 
 const PRIORITY_ORDER: Record<Priority, number> = { urgent: 0, high: 1, medium: 2 }
 
-const PRIORITY_BORDER = {
-  urgent: 'border-l-red-500',
-  high:   'border-l-amber-400',
-  medium: 'border-l-sky-400',
+const PRIORITY_BORDER: Record<Priority, string> = {
+  urgent: '#ff4d4d',
+  high:   '#f5a623',
+  medium: '#60a5fa',
 }
 
-const PRIORITY_LABEL = {
-  urgent: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
-  high:   'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
-  medium: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400',
+const PRIORITY_BADGE: Record<Priority, { bg: string; color: string }> = {
+  urgent: { bg: 'rgba(255,77,77,0.10)',  color: '#ff4d4d' },
+  high:   { bg: 'rgba(245,166,35,0.10)', color: '#f5a623' },
+  medium: { bg: 'rgba(96,165,250,0.10)', color: '#60a5fa' },
 }
 
-const ISSUE_DOT: Record<Priority, string> = {
-  urgent: 'bg-red-400',
-  high:   'bg-amber-400',
-  medium: 'bg-sky-400',
+const ISSUE_DOT_COLOR: Record<Priority, string> = {
+  urgent: '#ff4d4d',
+  high:   '#f5a623',
+  medium: '#60a5fa',
 }
 
 function collectIssues(holdings: HoldingMeta[], alerts: AlertRow[]): RawIssue[] {
   const issues: RawIssue[] = []
 
-  // Active alerts (critical → urgent, warning → high)
   for (const a of alerts) {
     if (a.alert_status !== 'active' || !a.ticker) continue
     const p = a.priority ?? 0
     if (p >= 8) {
-      issues.push({
-        ticker: a.ticker,
-        priority: 'urgent',
-        label: 'Critical alert',
-        reason: (a.title ?? a.message ?? '').slice(0, 80),
-      })
+      issues.push({ ticker: a.ticker, priority: 'urgent', label: 'Critical alert', reason: (a.title ?? a.message ?? '').slice(0, 80) })
     } else if (p >= 5) {
-      issues.push({
-        ticker: a.ticker,
-        priority: 'high',
-        label: 'Warning alert',
-        reason: (a.title ?? a.message ?? '').slice(0, 80),
-      })
+      issues.push({ ticker: a.ticker, priority: 'high', label: 'Warning alert', reason: (a.title ?? a.message ?? '').slice(0, 80) })
     }
   }
 
-  // Overweight
   for (const h of holdings) {
     if (h.max_allocation_pct != null && h.weight > h.max_allocation_pct) {
-      issues.push({
-        ticker: h.ticker,
-        priority: 'high',
-        label: 'Overweight',
-        reason: `${h.weight.toFixed(1)}% vs ${h.max_allocation_pct}% max`,
-      })
+      issues.push({ ticker: h.ticker, priority: 'high', label: 'Overweight', reason: `${h.weight.toFixed(1)}% vs ${h.max_allocation_pct}% max` })
     }
   }
 
-  // Low conviction + significant position
   for (const h of holdings) {
     if ((h.conviction_score ?? 10) <= 4 && h.weight >= 5) {
-      issues.push({
-        ticker: h.ticker,
-        priority: 'medium',
-        label: 'Low conviction',
-        reason: `Conv ${h.conviction_score}/10, ${h.weight.toFixed(1)}% weight`,
-      })
+      issues.push({ ticker: h.ticker, priority: 'medium', label: 'Low conviction', reason: `Conv ${h.conviction_score}/10, ${h.weight.toFixed(1)}% weight` })
     }
   }
 
-  // Missing thesis for significant position
   for (const h of holdings) {
     if (!h.thesis && h.weight >= 3) {
-      issues.push({
-        ticker: h.ticker,
-        priority: 'medium',
-        label: 'No thesis',
-        reason: `${h.weight.toFixed(1)}% position without thesis`,
-      })
+      issues.push({ ticker: h.ticker, priority: 'medium', label: 'No thesis', reason: `${h.weight.toFixed(1)}% position without thesis` })
     }
   }
 
@@ -119,7 +90,6 @@ function collectIssues(holdings: HoldingMeta[], alerts: AlertRow[]): RawIssue[] 
 export function DecisionQueue({ holdings, alerts }: Props) {
   const rawIssues = collectIssues(holdings, alerts)
 
-  // Cluster by ticker — one row per ticker, highest priority wins
   const tickerMap = new Map<string, RawIssue[]>()
   for (const issue of rawIssues) {
     if (!tickerMap.has(issue.ticker)) tickerMap.set(issue.ticker, [])
@@ -129,53 +99,56 @@ export function DecisionQueue({ holdings, alerts }: Props) {
   const clustered: ClusteredItem[] = []
   for (const [ticker, issues] of tickerMap) {
     const sorted = [...issues].sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
-    clustered.push({
-      key: `cluster-${ticker}`,
-      ticker,
-      priority: sorted[0].priority,
-      issues: sorted,
-    })
+    clustered.push({ key: `cluster-${ticker}`, ticker, priority: sorted[0].priority, issues: sorted })
   }
 
   const sortedItems = clustered.sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-2.5">
-        <h2 className="text-sm font-semibold">Decision Queue</h2>
+    <div className="rounded-xl overflow-hidden" style={{ background: '#111111', border: '1px solid #232323' }}>
+      <div className="px-5 py-3.5 flex items-center gap-2.5" style={{ borderBottom: '1px solid #232323' }}>
+        <h2 className="text-sm font-semibold text-white">Decision Queue</h2>
         {sortedItems.length > 0 ? (
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: 'rgba(245,166,35,0.10)', color: '#f5a623' }}>
             {sortedItems.length} position{sortedItems.length !== 1 ? 's' : ''} flagged
           </span>
         ) : (
-          <span className="text-xs text-emerald-500 dark:text-emerald-400">✓ Nothing pending</span>
+          <span className="text-xs" style={{ color: '#00dc82' }}>✓ Nothing pending</span>
         )}
       </div>
 
       {sortedItems.length === 0 ? (
-        <p className="px-5 py-8 text-center text-sm text-zinc-400">No decisions required right now</p>
+        <p className="px-5 py-8 text-center text-sm" style={{ color: '#555' }}>No decisions required right now</p>
       ) : (
-        <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-          {sortedItems.map(item => (
-            <div key={item.key} className={`border-l-4 ${PRIORITY_BORDER[item.priority]} px-4 py-3`}>
+        <div>
+          {sortedItems.map((item, idx) => (
+            <div
+              key={item.key}
+              className="px-4 py-3"
+              style={{
+                borderLeft: `3px solid ${PRIORITY_BORDER[item.priority]}`,
+                borderBottom: idx < sortedItems.length - 1 ? '1px solid #1a1a1a' : 'none',
+              }}
+            >
               <div className="flex items-center gap-2 mb-1.5">
-                <span className="font-mono text-xs font-bold text-zinc-900 dark:text-zinc-100">{item.ticker}</span>
-                <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${PRIORITY_LABEL[item.priority]}`}>
+                <span className="font-mono text-xs font-bold text-white tracking-tight">{item.ticker}</span>
+                <span className="text-xs font-medium px-1.5 py-0.5 rounded" style={PRIORITY_BADGE[item.priority]}>
                   {item.priority}
                 </span>
                 {item.issues.length > 1 && (
-                  <span className="text-xs text-zinc-400 dark:text-zinc-500">
-                    {item.issues.length} issues
-                  </span>
+                  <span className="text-xs" style={{ color: '#555' }}>{item.issues.length} issues</span>
                 )}
               </div>
               <ul className="space-y-1">
                 {item.issues.map((issue, i) => (
                   <li key={i} className="flex items-start gap-2">
-                    <span className={`mt-1.5 shrink-0 w-1.5 h-1.5 rounded-full ${ISSUE_DOT[issue.priority]}`} />
-                    <span className="text-xs text-zinc-700 dark:text-zinc-300">
-                      <span className="font-medium">{issue.label}:</span>{' '}
-                      <span className="text-zinc-500 dark:text-zinc-400">{issue.reason}</span>
+                    <span
+                      className="shrink-0 mt-1.5 rounded-full"
+                      style={{ width: 5, height: 5, background: ISSUE_DOT_COLOR[issue.priority], display: 'inline-block' }}
+                    />
+                    <span className="text-xs" style={{ color: '#9a9a9a' }}>
+                      <span className="font-medium text-white">{issue.label}:</span>{' '}
+                      {issue.reason}
                     </span>
                   </li>
                 ))}

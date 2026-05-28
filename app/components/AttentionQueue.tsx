@@ -56,10 +56,16 @@ interface Props {
   newsItems: NewsItem[]
 }
 
-const SEV_BADGE: Record<string, string> = {
-  critical: 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400',
-  high:     'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  medium:   'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
+const SEV_BORDER: Record<string, string> = {
+  critical: '#ff4d4d',
+  high:     '#f5a623',
+  medium:   '#2a2a2a',
+}
+
+const SEV_BADGE: Record<string, { bg: string; color: string }> = {
+  critical: { bg: 'rgba(255,77,77,0.10)',  color: '#ff4d4d' },
+  high:     { bg: 'rgba(245,166,35,0.10)', color: '#f5a623' },
+  medium:   { bg: 'rgba(100,100,100,0.08)', color: '#6b6b6b' },
 }
 
 const SEV_LABEL: Record<string, string> = {
@@ -86,14 +92,9 @@ function deriveNewsCategory(tags: string[], summary: string, thesisImpact: strin
   if (thesisImpact === 'breaking') return 'Thesis trigger'
   if (thesisImpact === 'weakening') return 'Thesis concern'
   const tagMap: Record<string, string> = {
-    dilution:   'Dilution risk',
-    'm&a':      'Acquisition activity',
-    debt:       'Financing activity',
-    regulatory: 'Regulatory event',
-    management: 'Management change',
-    dividend:   'Dividend event',
-    guidance:   'Market guidance',
-    earnings:   'Earnings activity',
+    dilution: 'Dilution risk', 'm&a': 'Acquisition activity', debt: 'Financing activity',
+    regulatory: 'Regulatory event', management: 'Management change', dividend: 'Dividend event',
+    guidance: 'Market guidance', earnings: 'Earnings activity',
   }
   for (const [tag, label] of Object.entries(tagMap)) {
     if (tags.includes(tag)) {
@@ -161,16 +162,12 @@ function buildItems(alerts: AlertRow[], newsItems: NewsItem[]): AttentionItem[] 
 
 function ImpactLevel({ value }: { value: number }) {
   const label = value >= 8 ? 'High' : value >= 6 ? 'Medium' : value >= 4 ? 'Low' : 'Minimal'
-  const cls = value >= 8 ? 'text-red-500' : value >= 6 ? 'text-amber-500' : 'text-zinc-400 dark:text-zinc-500'
-  return <span className={`text-xs font-medium ${cls}`}>Impact {label}</span>
+  const color = value >= 8 ? '#ff4d4d' : value >= 6 ? '#f5a623' : '#555'
+  return <span className="text-xs font-medium" style={{ color }}>Impact {label}</span>
 }
 
-function AttentionCard({ item }: { item: AttentionItem }) {
+function AttentionCard({ item, isLast }: { item: AttentionItem; isLast?: boolean }) {
   const [expanded, setExpanded] = useState(false)
-
-  const borderCls = item.priority === 'critical' ? 'border-l-red-400'
-    : item.priority === 'high' ? 'border-l-amber-400'
-    : 'border-l-zinc-200 dark:border-l-zinc-700'
 
   const date = item.timestamp
     ? new Date(item.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -179,34 +176,28 @@ function AttentionCard({ item }: { item: AttentionItem }) {
   return (
     <button
       onClick={() => setExpanded(e => !e)}
-      className={`w-full text-left px-5 py-4 border-l-[3px] ${borderCls} hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors`}
+      className="w-full text-left px-5 py-4 transition-colors hover:bg-[#171717]"
+      style={{
+        borderLeft: `3px solid ${SEV_BORDER[item.priority]}`,
+        borderBottom: isLast ? 'none' : '1px solid #1a1a1a',
+      }}
     >
-      {/* Row 1: ticker + severity badge */}
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-            {item.ticker}
-          </span>
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${SEV_BADGE[item.priority]}`}>
+          <span className="font-mono text-sm font-bold text-white tracking-tight">{item.ticker}</span>
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={SEV_BADGE[item.priority]}>
             {SEV_LABEL[item.priority]}
           </span>
         </div>
         {item.portfolioImpact != null && <ImpactLevel value={item.portfolioImpact} />}
       </div>
 
-      {/* Row 2: plain-English category */}
-      <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-        {item.category}
-      </p>
+      <p className="text-sm font-medium text-white mb-1">{item.category}</p>
 
-      {/* Row 3: why it matters */}
-      <p className="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed">
-        {item.whyItMatters}
-      </p>
+      <p className="text-xs leading-relaxed" style={{ color: '#666' }}>{item.whyItMatters}</p>
 
-      {/* Expanded detail */}
       {expanded && (
-        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800 text-xs text-zinc-400 dark:text-zinc-500">
+        <div className="flex items-center gap-4 mt-3 pt-3 text-xs" style={{ borderTop: '1px solid #1e1e1e', color: '#555' }}>
           {date && <span>{date}</span>}
           {item.urgency != null && <span>Urgency {item.urgency.toFixed(0)}/10</span>}
           {item.portfolioImpact != null && <span>Portfolio impact {item.portfolioImpact.toFixed(0)}/10</span>}
@@ -226,45 +217,48 @@ export function AttentionQueue({ alerts, newsItems }: Props) {
   const highCount = items.filter(i => i.priority === 'high').length
 
   return (
-    <div className="rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-      <div className="px-5 py-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400 dark:text-zinc-500">
+    <div className="rounded-2xl overflow-hidden" style={{ background: '#111111', border: '1px solid #232323' }}>
+      <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #232323' }}>
+        <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#555' }}>
           What Needs Attention
         </p>
         <div className="flex items-center gap-2">
           {criticalCount > 0 && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,77,77,0.10)', color: '#ff4d4d' }}>
               {criticalCount} critical
             </span>
           )}
           {highCount > 0 && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(245,166,35,0.10)', color: '#f5a623' }}>
               {highCount} active
             </span>
           )}
           {items.length === 0 && (
-            <span className="text-xs font-medium text-emerald-500">All clear</span>
+            <span className="text-xs font-medium" style={{ color: '#00dc82' }}>All clear</span>
           )}
         </div>
       </div>
 
       {items.length === 0 ? (
         <div className="px-6 py-10 text-center">
-          <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mx-auto mb-3">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="text-emerald-500">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: 'rgba(0,220,130,0.08)' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00dc82" strokeWidth="2.5" strokeLinecap="round">
               <path d="M20 6L9 17l-5-5" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">No active signals</p>
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">Portfolio is operating as expected</p>
+          <p className="text-sm font-medium text-white">No active signals</p>
+          <p className="text-xs mt-1" style={{ color: '#555' }}>Portfolio is operating as expected</p>
         </div>
       ) : (
-        <div className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
-          {visibleItems.map(item => <AttentionCard key={item.id} item={item} />)}
+        <div>
+          {visibleItems.map((item, idx) => (
+            <AttentionCard key={item.id} item={item} isLast={!hasMore && idx === visibleItems.length - 1} />
+          ))}
           {hasMore && (
             <button
               onClick={() => setShowAll(s => !s)}
-              className="w-full px-5 py-3 text-xs font-medium text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+              className="w-full px-5 py-3 text-xs font-medium transition-colors hover:text-white"
+              style={{ color: '#555', borderTop: '1px solid #1a1a1a' }}
             >
               {showAll ? 'Show less' : `${items.length - 5} more items →`}
             </button>

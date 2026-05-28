@@ -28,137 +28,120 @@ interface Props {
 const BUCKET_ORDER = ['immediate', 'daily', 'weekly'] as const
 type Bucket = typeof BUCKET_ORDER[number]
 
-const BUCKET_META: Record<Bucket, { label: string; badge: string; dot: string; activeBorder: string }> = {
-  immediate: {
-    label: 'Immediate',
-    badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
-    dot: 'bg-red-500',
-    activeBorder: 'border-b-red-500',
-  },
-  daily: {
-    label: 'Daily',
-    badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
-    dot: 'bg-amber-400',
-    activeBorder: 'border-b-amber-400',
-  },
-  weekly: {
-    label: 'Weekly',
-    badge: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400',
-    dot: 'bg-sky-400',
-    activeBorder: 'border-b-sky-400',
-  },
+const BUCKET_META: Record<Bucket, { label: string; dotColor: string; badgeBg: string; badgeColor: string }> = {
+  immediate: { label: 'Immediate', dotColor: '#ff4d4d', badgeBg: 'rgba(255,77,77,0.10)',  badgeColor: '#ff4d4d' },
+  daily:     { label: 'Daily',     dotColor: '#f5a623', badgeBg: 'rgba(245,166,35,0.10)', badgeColor: '#f5a623' },
+  weekly:    { label: 'Weekly',    dotColor: '#60a5fa', badgeBg: 'rgba(96,165,250,0.10)', badgeColor: '#60a5fa' },
 }
 
-const THESIS_STYLE: Record<string, string> = {
-  breaking:   'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
-  weakening:  'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
-  supporting: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
+const THESIS_BADGE: Record<string, { bg: string; color: string }> = {
+  breaking:   { bg: 'rgba(255,77,77,0.10)',  color: '#ff4d4d' },
+  weakening:  { bg: 'rgba(245,166,35,0.10)', color: '#f5a623' },
+  supporting: { bg: 'rgba(0,220,130,0.08)',  color: '#00dc82' },
 }
 
-const SENTIMENT_STYLE: Record<string, string> = {
-  positive: 'text-emerald-500',
-  negative: 'text-red-500',
-  neutral:  'text-zinc-400',
-  mixed:    'text-amber-500',
+const SENTIMENT_COLOR: Record<string, string> = {
+  positive: '#00dc82',
+  negative: '#ff4d4d',
+  neutral:  '#555',
+  mixed:    '#f5a623',
 }
 
 function ImpactBar({ value, max = 10 }: { value: number; max?: number }) {
   const pct = Math.min(100, (value / max) * 100)
-  const color = value >= 8 ? 'bg-red-400' : value >= 6 ? 'bg-amber-400' : value >= 4 ? 'bg-sky-400' : 'bg-zinc-300 dark:bg-zinc-600'
+  const color = value >= 8 ? '#ff4d4d' : value >= 6 ? '#f5a623' : value >= 4 ? '#60a5fa' : '#333'
   return (
     <div className="flex items-center gap-1.5">
-      <div className="w-12 h-1 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      <div className="w-12 h-1 rounded-full overflow-hidden" style={{ background: '#222' }}>
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
-      <span className="tabular-nums text-xs">{value.toFixed(1)}</span>
+      <span className="tabular-nums text-xs" style={{ color: '#9a9a9a' }}>{value.toFixed(1)}</span>
     </div>
   )
 }
 
-function NewsRow({ item }: { item: NewsItem }) {
+function NewsRow({ item, isLast }: { item: NewsItem; isLast?: boolean }) {
   const [expanded, setExpanded] = useState(false)
   const hasThesis = item.thesis_impact && item.thesis_impact !== 'none'
+  const thesisBadge = item.thesis_impact ? THESIS_BADGE[item.thesis_impact] : null
 
   return (
     <div
-      className="px-4 py-3 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors"
+      className="px-4 py-3 cursor-pointer transition-colors hover:bg-[#171717]"
+      style={{ borderBottom: isLast ? 'none' : '1px solid #1a1a1a' }}
       onClick={() => setExpanded(e => !e)}
     >
-      {/* Badges row */}
       <div className="flex flex-wrap items-center gap-1.5 mb-1">
         {item.ticker && (
-          <span className="font-mono text-xs font-bold text-zinc-900 dark:text-zinc-100">{item.ticker}</span>
+          <span className="font-mono text-xs font-bold text-white tracking-tight">{item.ticker}</span>
         )}
-
-        {/* Verification badge — primary signal */}
         {item.is_verified ? (
-          <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+          <span className="text-xs font-semibold px-1.5 py-0.5 rounded" style={{ background: 'rgba(0,220,130,0.08)', color: '#00dc82' }}>
             ✓ Verified
           </span>
         ) : (
-          <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500">
+          <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(100,100,100,0.08)', color: '#555' }}>
             Unverified
           </span>
         )}
-
-        {hasThesis && (
-          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${THESIS_STYLE[item.thesis_impact!] ?? ''}`}>
+        {hasThesis && thesisBadge && (
+          <span className="text-xs font-semibold px-1.5 py-0.5 rounded" style={thesisBadge}>
             thesis {item.thesis_impact}
           </span>
         )}
         {item.sentiment && item.sentiment !== 'neutral' && (
-          <span className={`text-xs font-medium ${SENTIMENT_STYLE[item.sentiment] ?? ''}`}>{item.sentiment}</span>
+          <span className="text-xs font-medium" style={{ color: SENTIMENT_COLOR[item.sentiment] ?? '#555' }}>
+            {item.sentiment}
+          </span>
         )}
       </div>
 
-      {/* Headline */}
-      <p className="text-sm text-zinc-800 dark:text-zinc-200 leading-snug">
+      <p className="text-sm leading-snug" style={{ color: '#e0e0e0' }}>
         {item.headline.slice(0, 120)}{item.headline.length > 120 ? '…' : ''}
       </p>
 
-      {/* Scores — portfolio impact primary, importance secondary */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5">
         {item.portfolio_impact_score != null && (
           <div className="flex items-center gap-1">
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Portfolio impact</span>
+            <span className="text-xs font-medium" style={{ color: '#666' }}>Portfolio impact</span>
             <ImpactBar value={item.portfolio_impact_score} />
           </div>
         )}
         {item.importance_score != null && (
           <div className="flex items-center gap-1">
-            <span className="text-xs text-zinc-400 dark:text-zinc-500">Importance</span>
-            <span className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{item.importance_score.toFixed(1)}</span>
+            <span className="text-xs" style={{ color: '#555' }}>Importance</span>
+            <span className="text-xs tabular-nums" style={{ color: '#9a9a9a' }}>{item.importance_score.toFixed(1)}</span>
           </div>
         )}
         {item.urgency_score != null && (
           <div className="flex items-center gap-1">
-            <span className="text-xs text-zinc-400 dark:text-zinc-500">Urgency</span>
-            <span className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{item.urgency_score.toFixed(1)}</span>
+            <span className="text-xs" style={{ color: '#555' }}>Urgency</span>
+            <span className="text-xs tabular-nums" style={{ color: '#9a9a9a' }}>{item.urgency_score.toFixed(1)}</span>
           </div>
         )}
-        <span className="text-xs text-zinc-400 dark:text-zinc-500">{item.source}</span>
+        {item.source && <span className="text-xs" style={{ color: '#555' }}>{item.source}</span>}
         {item.published_at && (
-          <span className="text-xs text-zinc-400 dark:text-zinc-500">
+          <span className="text-xs" style={{ color: '#555' }}>
             {new Date(item.published_at).toLocaleDateString()}
           </span>
         )}
       </div>
 
-      {/* Expanded detail */}
       {expanded && (
-        <div className="mt-2.5 space-y-1.5 border-t border-zinc-100 dark:border-zinc-800 pt-2.5">
+        <div className="mt-2.5 space-y-1.5 pt-2.5" style={{ borderTop: '1px solid #1e1e1e' }}>
           {item.summary && (
-            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">{item.summary}</p>
+            <p className="text-xs leading-relaxed" style={{ color: '#c8c8c8' }}>{item.summary}</p>
           )}
           {item.scoring_reason && (
-            <p className="text-xs text-zinc-400 dark:text-zinc-500 italic leading-relaxed">{item.scoring_reason}</p>
+            <p className="text-xs italic leading-relaxed" style={{ color: '#555' }}>{item.scoring_reason}</p>
           )}
           {item.source_url && (
             <a
               href={item.source_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block text-xs text-sky-500 hover:underline"
+              className="inline-block text-xs hover:underline"
+              style={{ color: '#60a5fa' }}
               onClick={e => e.stopPropagation()}
             >
               View source →
@@ -179,7 +162,6 @@ export function NewsIntelligence({ items }: Props) {
     if (b in byBucket) byBucket[b].push(item)
   }
 
-  // Auto-select first non-empty tab
   const effectiveTab: Bucket = byBucket[activeTab].length > 0
     ? activeTab
     : BUCKET_ORDER.find(b => byBucket[b].length > 0) ?? 'immediate'
@@ -187,18 +169,17 @@ export function NewsIntelligence({ items }: Props) {
   const displayItems = byBucket[effectiveTab]
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">News Intelligence</h2>
-        <span className="text-xs text-zinc-400 dark:text-zinc-500">{items.length} scored</span>
+    <div className="rounded-xl overflow-hidden" style={{ background: '#111111', border: '1px solid #232323' }}>
+      <div className="px-5 py-3.5 flex items-center justify-between" style={{ borderBottom: '1px solid #232323' }}>
+        <h2 className="text-sm font-semibold text-white">News Intelligence</h2>
+        <span className="text-xs" style={{ color: '#555' }}>{items.length} scored</span>
       </div>
 
       {items.length === 0 ? (
-        <p className="px-5 py-8 text-center text-sm text-zinc-400">No news scored yet — run the news pipeline</p>
+        <p className="px-5 py-8 text-center text-sm" style={{ color: '#555' }}>No news scored yet — run the news pipeline</p>
       ) : (
         <>
-          {/* Tabs — Immediate first, Daily second, Weekly third */}
-          <div className="flex border-b border-zinc-200 dark:border-zinc-800">
+          <div className="flex" style={{ borderBottom: '1px solid #232323' }}>
             {BUCKET_ORDER.map(bucket => {
               const meta = BUCKET_META[bucket]
               const count = byBucket[bucket].length
@@ -207,16 +188,16 @@ export function NewsIntelligence({ items }: Props) {
                 <button
                   key={bucket}
                   onClick={() => setActiveTab(bucket)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors border-b-2
-                    ${isActive
-                      ? `border-b-zinc-900 dark:border-b-zinc-100 text-zinc-900 dark:text-zinc-100`
-                      : 'border-b-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
-                    }`}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors"
+                  style={{
+                    color: isActive ? '#ffffff' : '#555',
+                    borderBottom: `2px solid ${isActive ? '#ffffff' : 'transparent'}`,
+                  }}
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${meta.dot}`} />
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: meta.dotColor }} />
                   {meta.label}
                   {count > 0 && (
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${meta.badge}`}>
+                    <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ background: meta.badgeBg, color: meta.badgeColor }}>
                       {count}
                     </span>
                   )}
@@ -226,10 +207,12 @@ export function NewsIntelligence({ items }: Props) {
           </div>
 
           {displayItems.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-zinc-400">No {BUCKET_META[effectiveTab].label} items</p>
+            <p className="px-5 py-8 text-center text-sm" style={{ color: '#555' }}>No {BUCKET_META[effectiveTab].label} items</p>
           ) : (
-            <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60 max-h-96 overflow-y-auto">
-              {displayItems.map(item => <NewsRow key={item.id} item={item} />)}
+            <div className="max-h-96 overflow-y-auto">
+              {displayItems.map((item, idx) => (
+                <NewsRow key={item.id} item={item} isLast={idx === displayItems.length - 1} />
+              ))}
             </div>
           )}
         </>

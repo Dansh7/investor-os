@@ -66,22 +66,6 @@ function usd(n: number, decimals = 0) {
 
 function pct(n: number) { return (n >= 0 ? '+' : '') + n.toFixed(2) + '%' }
 
-function SunIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-    </svg>
-  )
-}
-
-function MoonIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-    </svg>
-  )
-}
-
 function PlusIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -146,11 +130,12 @@ function SortCaret({ active, dir }: { active: boolean; dir: 1 | -1 }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const inputClass =
-  'w-full px-3 py-2 rounded-lg text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-500'
-const labelClass = 'block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1'
+  'w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#444]'
+const inputStyle = { background: '#1a1a1a', border: '1px solid #2e2e2e', color: '#e0e0e0' }
+const labelClass = 'block text-xs font-medium mb-1'
+const labelStyle = { color: '#666' }
 
 export default function Dashboard() {
-  const [dark, setDark] = useState(false)
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -183,8 +168,6 @@ export default function Dashboard() {
   const holdingsRef = useRef<Holding[]>([])
 
   useEffect(() => {
-    const isDark = localStorage.getItem('theme') !== 'light'
-    setDark(isDark)
     if (localStorage.getItem('currency') === 'ILS') setCurrency('ILS')
   }, [])
 
@@ -260,12 +243,6 @@ export default function Dashboard() {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [showModal])
-
-  function toggleTheme() {
-    const next = !dark
-    setDark(next)
-    localStorage.setItem('theme', next ? 'dark' : 'light')
-  }
 
   const ilsRate = prices['ILS=X']?.current_price ?? null
 
@@ -368,44 +345,41 @@ export default function Dashboard() {
   })
 
   return (
-    <div className={dark ? 'dark' : ''}>
-      <div
-        className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 transition-colors"
-        style={{ fontFamily: 'var(--font-geist-sans), system-ui, sans-serif' }}
+    <div
+      className="min-h-screen antialiased"
+      style={{ background: '#0a0a0a', color: '#ffffff', fontFamily: 'var(--font-geist-sans), system-ui, sans-serif' }}
+    >
+      {/* Header */}
+      <header
+        className="flex items-center justify-between px-5 sm:px-8 py-4"
+        style={{ background: '#111111', borderBottom: '1px solid #232323' }}
       >
-        {/* Header — minimal */}
-        <header className="flex items-center justify-between px-5 sm:px-8 py-4 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800">
-          <div className="flex items-center gap-2.5">
-            <span className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Investor OS</span>
-            {pricesLoading && (
-              <span className="text-xs text-zinc-400 dark:text-zinc-500">Updating…</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {ilsRate && (
-              <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums hidden sm:block">
-                ₪{ilsRate.toFixed(3)}/$
-              </span>
-            )}
-            <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden text-xs font-medium">
-              <button
-                onClick={() => { setCurrency('USD'); localStorage.setItem('currency', 'USD') }}
-                className={`px-2.5 py-1.5 transition-colors ${currency === 'USD' ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
-              >$</button>
-              <button
-                onClick={() => { setCurrency('ILS'); localStorage.setItem('currency', 'ILS') }}
-                className={`px-2.5 py-1.5 transition-colors ${currency === 'ILS' ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
-              >₪</button>
-            </div>
+        <div className="flex items-center gap-2.5">
+          <span className="text-sm font-semibold tracking-tight text-white">Investor OS</span>
+          {pricesLoading && (
+            <span className="text-xs tabular-nums" style={{ color: '#555' }}>Updating…</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {ilsRate && (
+            <span className="text-xs tabular-nums hidden sm:block" style={{ color: '#555' }}>
+              ₪{ilsRate.toFixed(3)}/$
+            </span>
+          )}
+          <div className="flex rounded-lg overflow-hidden text-xs font-medium" style={{ border: '1px solid #2e2e2e' }}>
             <button
-              onClick={toggleTheme}
-              className="p-2 rounded-lg text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-              aria-label="Toggle theme"
-            >
-              {dark ? <SunIcon /> : <MoonIcon />}
-            </button>
+              onClick={() => { setCurrency('USD'); localStorage.setItem('currency', 'USD') }}
+              className="px-2.5 py-1.5 transition-colors"
+              style={{ background: currency === 'USD' ? '#ffffff' : 'transparent', color: currency === 'USD' ? '#000000' : '#555' }}
+            >$</button>
+            <button
+              onClick={() => { setCurrency('ILS'); localStorage.setItem('currency', 'ILS') }}
+              className="px-2.5 py-1.5 transition-colors"
+              style={{ background: currency === 'ILS' ? '#ffffff' : 'transparent', color: currency === 'ILS' ? '#000000' : '#555' }}
+            >₪</button>
           </div>
-        </header>
+        </div>
+      </header>
 
         {/* ── ZONES 1–3: narrow, centered, mobile-first ─── */}
         <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-4">
@@ -437,7 +411,8 @@ export default function Dashboard() {
           {/* Deep dive toggle */}
           <button
             onClick={() => setShowDetails(s => !s)}
-            className="w-full flex items-center justify-center gap-2 py-3 text-xs font-medium text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-900 transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-3 text-xs font-medium rounded-2xl transition-colors hover:text-white"
+            style={{ color: '#555', border: '1px solid #232323', background: '#111111' }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={`transition-transform ${showDetails ? 'rotate-180' : ''}`}>
               <path d="M6 9l6 6 6-6" />
@@ -642,7 +617,6 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-      </div>
 
       {/* Add Stock Modal */}
       {showModal && (
@@ -650,50 +624,50 @@ export default function Dashboard() {
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
           onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}
         >
-          <div className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-2xl">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 dark:border-zinc-800">
-              <h3 className="text-sm font-semibold">Add Stock</h3>
-              <button onClick={() => setShowModal(false)} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"><XIcon size={16} /></button>
+          <div className="w-full max-w-md rounded-2xl" style={{ background: '#111111', border: '1px solid #232323' }}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #232323' }}>
+              <h3 className="text-sm font-semibold text-white">Add Stock</h3>
+              <button onClick={() => setShowModal(false)} className="transition-colors hover:text-white" style={{ color: '#555' }}><XIcon size={16} /></button>
             </div>
             <form onSubmit={handleAdd} className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelClass}>Ticker *</label>
-                  <input type="text" value={form.ticker} onChange={e => field('ticker', e.target.value)} placeholder="NVDA" autoFocus className={inputClass + ' font-mono uppercase'} />
+                  <label className={labelClass} style={labelStyle}>Ticker *</label>
+                  <input type="text" value={form.ticker} onChange={e => field('ticker', e.target.value)} placeholder="NVDA" autoFocus className={inputClass + ' font-mono uppercase'} style={inputStyle} />
                 </div>
                 <div>
-                  <label className={labelClass}>Category</label>
-                  <select value={form.category} onChange={e => field('category', e.target.value)} className={inputClass}>
+                  <label className={labelClass} style={labelStyle}>Category</label>
+                  <select value={form.category} onChange={e => field('category', e.target.value)} className={inputClass} style={inputStyle}>
                     {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
                 </div>
               </div>
               <div>
-                <label className={labelClass}>Company Name *</label>
-                <input type="text" value={form.company_name} onChange={e => field('company_name', e.target.value)} placeholder="NVIDIA Corporation" className={inputClass} />
+                <label className={labelClass} style={labelStyle}>Company Name *</label>
+                <input type="text" value={form.company_name} onChange={e => field('company_name', e.target.value)} placeholder="NVIDIA Corporation" className={inputClass} style={inputStyle} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelClass}>Shares *</label>
-                  <input type="number" min="0" step="any" value={form.shares} onChange={e => field('shares', e.target.value)} placeholder="50" className={inputClass} />
+                  <label className={labelClass} style={labelStyle}>Shares *</label>
+                  <input type="number" min="0" step="any" value={form.shares} onChange={e => field('shares', e.target.value)} placeholder="50" className={inputClass} style={inputStyle} />
                 </div>
                 <div>
-                  <label className={labelClass}>Avg Buy Price *</label>
-                  <input type="number" min="0" step="any" value={form.avg_buy_price} onChange={e => field('avg_buy_price', e.target.value)} placeholder="450.00" className={inputClass} />
+                  <label className={labelClass} style={labelStyle}>Avg Buy Price *</label>
+                  <input type="number" min="0" step="any" value={form.avg_buy_price} onChange={e => field('avg_buy_price', e.target.value)} placeholder="450.00" className={inputClass} style={inputStyle} />
                 </div>
               </div>
               <div>
-                <label className={labelClass}>Conviction Score (1–10)</label>
-                <input type="number" min="1" max="10" value={form.conviction_score} onChange={e => field('conviction_score', e.target.value)} placeholder="8" className={inputClass} />
+                <label className={labelClass} style={labelStyle}>Conviction Score (1–10)</label>
+                <input type="number" min="1" max="10" value={form.conviction_score} onChange={e => field('conviction_score', e.target.value)} placeholder="8" className={inputClass} style={inputStyle} />
               </div>
               <div>
-                <label className={labelClass}>Thesis</label>
-                <textarea rows={3} value={form.thesis} onChange={e => field('thesis', e.target.value)} placeholder="Why are you investing in this stock?" className={inputClass + ' resize-none'} />
+                <label className={labelClass} style={labelStyle}>Thesis</label>
+                <textarea rows={3} value={form.thesis} onChange={e => field('thesis', e.target.value)} placeholder="Why are you investing in this stock?" className={inputClass + ' resize-none'} style={inputStyle} />
               </div>
-              {formError && <p className="text-xs text-red-500 dark:text-red-400">{formError}</p>}
+              {formError && <p className="text-xs" style={{ color: '#ff4d4d' }}>{formError}</p>}
               <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Cancel</button>
-                <button type="submit" disabled={submitting} className="px-4 py-2 rounded-lg text-sm font-medium bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-300 disabled:opacity-50 transition-colors">
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg text-sm transition-colors hover:text-white" style={{ color: '#555' }}>Cancel</button>
+                <button type="submit" disabled={submitting} className="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50" style={{ background: '#ffffff', color: '#000000' }}>
                   {submitting ? 'Saving…' : 'Add Stock'}
                 </button>
               </div>

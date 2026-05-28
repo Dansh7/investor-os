@@ -22,10 +22,7 @@ function daysUntil(dateStr: string): number {
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  })
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 function daysLabel(days: number): string {
@@ -40,27 +37,32 @@ export function UpcomingTimeline({ events }: Props) {
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
     .slice(0, 8)
 
-  const soonItems = upcoming.filter(e => daysUntil(e.scheduled_at) <= 7)
-  const laterItems = upcoming.filter(e => daysUntil(e.scheduled_at) > 7)
-
-  function EventRow({ event, highlight }: { event: TimelineEvent; highlight?: boolean }) {
+  function EventRow({ event, isLast }: { event: TimelineEvent; isLast?: boolean }) {
     const days = daysUntil(event.scheduled_at)
+    const highlight = days <= 7
     return (
-      <div className={`flex items-center justify-between px-5 py-3 ${highlight ? 'bg-amber-50/50 dark:bg-amber-900/5' : ''}`}>
+      <div
+        className="flex items-center justify-between px-5 py-3"
+        style={{
+          background: highlight ? 'rgba(245,166,35,0.03)' : 'transparent',
+          borderBottom: isLast ? 'none' : '1px solid #1a1a1a',
+        }}
+      >
         <div className="flex items-center gap-4 min-w-0">
-          <span className="text-xs tabular-nums text-zinc-400 dark:text-zinc-500 w-14 shrink-0">
+          <span className="text-xs tabular-nums w-14 shrink-0" style={{ color: '#555' }}>
             {formatDate(event.scheduled_at)}
           </span>
-          <span className={`font-mono text-xs font-bold shrink-0 ${highlight ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-700 dark:text-zinc-300'}`}>
+          <span className="font-mono text-xs font-bold shrink-0" style={{ color: highlight ? '#ffffff' : '#c8c8c8' }}>
             {event.ticker}
           </span>
-          <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate capitalize">
+          <span className="text-xs truncate capitalize" style={{ color: '#666' }}>
             {event.event_name ?? event.event_type}
           </span>
         </div>
-        <span className={`text-xs tabular-nums font-medium shrink-0 ml-3 ${
-          days <= 7 ? 'text-amber-500 font-semibold' : days <= 30 ? 'text-zinc-500 dark:text-zinc-400' : 'text-zinc-400 dark:text-zinc-500'
-        }`}>
+        <span
+          className="text-xs tabular-nums font-semibold shrink-0 ml-3"
+          style={{ color: days <= 7 ? '#f5a623' : days <= 30 ? '#9a9a9a' : '#555' }}
+        >
           {daysLabel(days)}
         </span>
       </div>
@@ -68,24 +70,21 @@ export function UpcomingTimeline({ events }: Props) {
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400 dark:text-zinc-500">
+    <div className="rounded-2xl overflow-hidden" style={{ background: '#111111', border: '1px solid #232323' }}>
+      <div className="px-5 py-4" style={{ borderBottom: '1px solid #232323' }}>
+        <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#555' }}>
           Coming Up
         </p>
       </div>
 
       {upcoming.length === 0 ? (
         <div className="px-6 py-8 text-center">
-          <p className="text-sm text-zinc-400 dark:text-zinc-500">No upcoming events</p>
+          <p className="text-sm" style={{ color: '#555' }}>No upcoming events</p>
         </div>
       ) : (
-        <div className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
-          {soonItems.map(event => (
-            <EventRow key={event.id} event={event} highlight />
-          ))}
-          {laterItems.map(event => (
-            <EventRow key={event.id} event={event} />
+        <div>
+          {upcoming.map((event, idx) => (
+            <EventRow key={event.id} event={event} isLast={idx === upcoming.length - 1} />
           ))}
         </div>
       )}
