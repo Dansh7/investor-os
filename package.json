@@ -6,22 +6,32 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:phase-a": "npx tsx --env-file=.env.local scripts/seed-phase-a.ts",
+    "seed:events": "npx tsx --env-file=.env.local scripts/seed-events.ts",
+    "news:run": "npx tsx --env-file=.env.local scripts/run-news-pipeline.ts",
+    "news:run:full": "npx tsx --env-file=.env.local scripts/run-news-pipeline.ts --full",
+    "news:reset": "npx tsx --env-file=.env.local scripts/reset-news.ts",
+    "alerts:clear": "npx tsx --env-file=.env.local scripts/clear-alerts.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.99.0",
     "@supabase/supabase-js": "^2.106.2",
     "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "rss-parser": "^3.13.0",
     "yahoo-finance2": "^3.14.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "pg": "^8.21.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

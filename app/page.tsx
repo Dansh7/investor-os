@@ -3,6 +3,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
+// Zone components (homepage)
+import { PortfolioPulse } from './components/PortfolioPulse'
+import { AttentionQueue, type AlertRow, type NewsItem } from './components/AttentionQueue'
+import { UpcomingTimeline, type TimelineEvent } from './components/UpcomingTimeline'
+
+// Deep-dive components (expandable)
+import { RiskMonitor } from './components/RiskMonitor'
+import { DecisionQueue } from './components/DecisionQueue'
+import { ConvictionMatrix } from './components/ConvictionMatrix'
+import { NewsIntelligence } from './components/NewsIntelligence'
+import { UpcomingEvents, type CalendarEvent } from './components/UpcomingEvents'
+import { ThesisMonitor, type ThesisHolding } from './components/ThesisMonitor'
+import { WatchlistPanel, type WatchlistItem } from './components/WatchlistPanel'
+import { PolicyWidget, type PolicyRule, type PolicyObjective } from './components/PolicyWidget'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -14,6 +29,12 @@ interface Holding {
   company_name: string
   shares: number
   avg_buy_price: number
+  thesis?: string | null
+  thesis_status?: string | null
+  thesis_break_conditions?: string[] | null
+  conviction_score?: number | null
+  target_allocation_pct?: number | null
+  max_allocation_pct?: number | null
 }
 
 interface PriceData {
@@ -33,40 +54,29 @@ const CATEGORIES = [
 ]
 
 const EMPTY_FORM = {
-  ticker: '',
-  company_name: '',
-  shares: '',
-  avg_buy_price: '',
-  category: '',
-  thesis: '',
-  conviction_score: '',
+  ticker: '', company_name: '', shares: '', avg_buy_price: '', category: '', thesis: '', conviction_score: '',
 }
 
 function usd(n: number, decimals = 0) {
   return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
+    style: 'currency', currency: 'USD',
+    minimumFractionDigits: decimals, maximumFractionDigits: decimals,
   }).format(n)
 }
 
-function pct(n: number) {
-  return (n >= 0 ? '+' : '') + n.toFixed(2) + '%'
-}
+function pct(n: number) { return (n >= 0 ? '+' : '') + n.toFixed(2) + '%' }
 
 function SunIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
     </svg>
   )
 }
 
 function MoonIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
     </svg>
   )
@@ -74,7 +84,7 @@ function MoonIcon() {
 
 function PlusIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
       <path d="M12 5v14M5 12h14" />
     </svg>
   )
@@ -88,9 +98,55 @@ function XIcon({ size = 14 }: { size?: number }) {
   )
 }
 
+// ─── Holdings table helpers ───────────────────────────────────────────────────
+
+type SortCol = 'weight' | 'day' | 'pnl' | 'conviction'
+
+const THESIS_DOT_COLOR: Record<string, string> = {
+  intact: '#00dc82',
+  weakening: '#f5a623',
+  at_risk: '#f5a623',
+  broken: '#ff4d4d',
+}
+
+const TH_STYLE = { color: '#555', fontSize: 11, fontWeight: 500 as const, letterSpacing: '0.08em', textTransform: 'uppercase' as const }
+
+function ConvictionDots({ score }: { score: number | null | undefined }) {
+  if (score == null) return <span style={{ color: '#3a3a3a', fontSize: 12 }}>—</span>
+  const fill = score >= 8 ? '#00dc82' : score >= 5 ? '#f5a623' : '#ff4d4d'
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+      {Array.from({ length: 10 }, (_, i) => (
+        <span key={i} style={{ display: 'inline-block', width: 5, height: 5, borderRadius: '50%', backgroundColor: i < score ? fill : '#252525', flexShrink: 0 }} />
+      ))}
+    </span>
+  )
+}
+
+function ThesisPill({ status }: { status: string | null | undefined }) {
+  const ts = (status ?? '').toLowerCase().replace(/\s+/g, '_')
+  const cfg: Record<string, { label: string; bg: string; color: string }> = {
+    intact:    { label: 'Intact',    bg: 'rgba(0,220,130,0.08)',  color: '#00dc82' },
+    weakening: { label: 'Weakening', bg: 'rgba(245,166,35,0.10)', color: '#f5a623' },
+    at_risk:   { label: 'At Risk',   bg: 'rgba(245,166,35,0.10)', color: '#f5a623' },
+    broken:    { label: 'Broken',    bg: 'rgba(255,77,77,0.10)',  color: '#ff4d4d' },
+  }
+  const { label, bg, color } = cfg[ts] ?? { label: 'No thesis', bg: 'rgba(100,100,100,0.07)', color: '#555' }
+  return (
+    <span style={{ background: bg, color, fontSize: 11, padding: '3px 8px', borderRadius: 4, fontWeight: 500, letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
+      {label}
+    </span>
+  )
+}
+
+function SortCaret({ active, dir }: { active: boolean; dir: 1 | -1 }) {
+  return <span style={{ color: active ? '#8b8b8b' : '#333', fontSize: 9, marginLeft: 2 }}>{active ? (dir === 1 ? '↑' : '↓') : '↕'}</span>
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const inputClass =
   'w-full px-3 py-2 rounded-lg text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-500'
-
 const labelClass = 'block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1'
 
 export default function Dashboard() {
@@ -100,13 +156,29 @@ export default function Dashboard() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [prices, setPrices] = useState<Record<string, PriceData>>({})
   const [pricesLoading, setPricesLoading] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
 
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
+  const [holdingSort, setHoldingSort] = useState<{ col: SortCol; dir: 1 | -1 }>({ col: 'weight', dir: -1 })
   const [currency, setCurrency] = useState<'USD' | 'ILS'>('USD')
+
+  const [alerts, setAlerts] = useState<AlertRow[]>([])
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([])
+  const [events, setEvents] = useState<TimelineEvent[]>([])
+  const [policy, setPolicy] = useState<{
+    max_single_position_pct?: number | null
+    max_sector_concentration_pct?: number | null
+    min_cash_pct?: number | null
+    max_cash_pct?: number | null
+    rebalance_frequency?: string | null
+  } | null>(null)
+  const [rules, setRules] = useState<PolicyRule[]>([])
+  const [objectives, setObjectives] = useState<PolicyObjective[]>([])
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
 
   const holdingsRef = useRef<Holding[]>([])
 
@@ -117,7 +189,7 @@ export default function Dashboard() {
   }, [])
 
   const fetchPrices = useCallback(async (tickers: string[]) => {
-    if (tickers.length === 0) return
+    if (!tickers.length) return
     setPricesLoading(true)
     try {
       const all = [...new Set([...tickers, 'ILS=X'])]
@@ -129,31 +201,44 @@ export default function Dashboard() {
         for (const item of data) next[item.ticker] = item
         return next
       })
-    } catch {
-      // silent fail — keep showing last known prices
-    } finally {
-      setPricesLoading(false)
-    }
+    } catch { /* silent */ } finally { setPricesLoading(false) }
   }, [])
 
   const fetchHoldings = useCallback(async () => {
     setLoading(true)
     const { data, error } = await supabase
       .from('holdings')
-      .select('id, ticker, company_name, shares, avg_buy_price')
+      .select('id, ticker, company_name, shares, avg_buy_price, thesis, thesis_status, thesis_break_conditions, conviction_score, target_allocation_pct, max_allocation_pct')
       .eq('portfolio_id', 1)
     if (error) setFetchError(error.message)
-    else {
-      setFetchError(null)
-      setHoldings(data ?? [])
-      holdingsRef.current = data ?? []
-    }
+    else { setFetchError(null); setHoldings(data ?? []); holdingsRef.current = data ?? [] }
     setLoading(false)
   }, [])
 
-  useEffect(() => { fetchHoldings() }, [fetchHoldings])
+  const fetchIntelligence = useCallback(async () => {
+    const today = new Date().toISOString().split('T')[0]
+    const [alertsRes, newsRes, eventsRes, policyRes, rulesRes, objectivesRes, watchlistRes] =
+      await Promise.allSettled([
+        supabase.from('alerts').select('*').eq('portfolio_id', 1).order('triggered_at', { ascending: false }).limit(50),
+        supabase.from('news_items').select('id, ticker, headline, source, source_url, published_at, importance_score, portfolio_impact_score, urgency_score, confidence_score, thesis_impact, action_type, is_verified, scoring_reason, sentiment, summary, tags').order('published_at', { ascending: false }).limit(60),
+        supabase.from('events').select('id, ticker, event_type, event_name, scheduled_at, notes').gte('scheduled_at', today).order('scheduled_at').limit(20),
+        supabase.from('portfolio_policy').select('max_single_position_pct, max_sector_concentration_pct, min_cash_pct, max_cash_pct, rebalance_frequency').eq('portfolio_id', 1).single(),
+        supabase.from('playbook_rules').select('*').eq('portfolio_id', 1).order('priority'),
+        supabase.from('portfolio_objectives').select('*').eq('portfolio_id', 1).order('priority'),
+        supabase.from('watchlist').select('*').eq('portfolio_id', 1).order('priority', { ascending: false }),
+      ])
+    if (alertsRes.status === 'fulfilled' && alertsRes.value.data) setAlerts(alertsRes.value.data)
+    if (newsRes.status === 'fulfilled' && newsRes.value.data) setNewsItems(newsRes.value.data)
+    if (eventsRes.status === 'fulfilled' && eventsRes.value.data) setEvents(eventsRes.value.data)
+    if (policyRes.status === 'fulfilled' && policyRes.value.data) setPolicy(policyRes.value.data)
+    if (rulesRes.status === 'fulfilled' && rulesRes.value.data) setRules(rulesRes.value.data)
+    if (objectivesRes.status === 'fulfilled' && objectivesRes.value.data) setObjectives(objectivesRes.value.data)
+    if (watchlistRes.status === 'fulfilled' && watchlistRes.value.data) setWatchlist(watchlistRes.value.data)
+  }, [])
 
-  // Fetch prices whenever the ticker list changes
+  useEffect(() => { fetchHoldings() }, [fetchHoldings])
+  useEffect(() => { fetchIntelligence() }, [fetchIntelligence])
+
   const tickerKey = holdings.map(h => h.ticker).sort().join(',')
   useEffect(() => {
     if (!tickerKey) return
@@ -161,7 +246,6 @@ export default function Dashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tickerKey, fetchPrices])
 
-  // Auto-refresh prices every 5 minutes
   useEffect(() => {
     const interval = setInterval(() => {
       const tickers = holdingsRef.current.map(h => h.ticker)
@@ -185,24 +269,23 @@ export default function Dashboard() {
 
   const ilsRate = prices['ILS=X']?.current_price ?? null
 
-  function toggleCurrency() {
-    const next = currency === 'USD' ? 'ILS' : 'USD'
-    setCurrency(next)
-    localStorage.setItem('currency', next)
-  }
-
   function fmtAmount(usdAmount: number, decimals = 0) {
-    if (currency === 'ILS' && ilsRate) {
-      return '₪' + new Intl.NumberFormat('en-US', {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-      }).format(usdAmount * ilsRate)
-    }
+    if (currency === 'ILS' && ilsRate)
+      return '₪' + new Intl.NumberFormat('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(usdAmount * ilsRate)
     return usd(usdAmount, decimals)
   }
 
   function field(key: keyof typeof EMPTY_FORM, value: string) {
     setForm(prev => ({ ...prev, [key]: value }))
+  }
+
+  async function updateAlertStatus(id: string, status: string) {
+    const res = await fetch(`/api/alerts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    })
+    if (res.ok) setAlerts(prev => prev.map(a => a.id === id ? { ...a, alert_status: status } : a))
   }
 
   async function handleAdd(e: React.FormEvent) {
@@ -213,7 +296,6 @@ export default function Dashboard() {
       return
     }
     setSubmitting(true)
-
     const record: Record<string, unknown> = {
       ticker: form.ticker.trim().toUpperCase(),
       company_name: form.company_name.trim(),
@@ -224,21 +306,17 @@ export default function Dashboard() {
       ...(form.thesis.trim() && { thesis: form.thesis.trim() }),
       ...(form.conviction_score && { conviction_score: parseInt(form.conviction_score) }),
     }
-
     let { error } = await supabase.from('holdings').insert(record)
     if (error?.message.includes('does not exist')) {
       const { error: e2 } = await supabase.from('holdings').insert({
-        ticker: record.ticker,
-        company_name: record.company_name,
-        shares: record.shares,
-        avg_buy_price: record.avg_buy_price,
-        portfolio_id: 1,
+        ticker: record.ticker, company_name: record.company_name,
+        shares: record.shares, avg_buy_price: record.avg_buy_price, portfolio_id: 1,
       })
       error = e2
     }
-
     setSubmitting(false)
-    if (error) { setFormError(error.message) } else { setShowModal(false); fetchHoldings() }
+    if (error) setFormError(error.message)
+    else { setShowModal(false); fetchHoldings() }
   }
 
   async function handleDelete(id: number) {
@@ -247,70 +325,77 @@ export default function Dashboard() {
     else { setConfirmDeleteId(null); fetchHoldings() }
   }
 
-  // --- Derived calculations ---
+  // Derived calculations
   const rows = holdings.map(h => {
     const p = prices[h.ticker]
     const currentPrice = p?.current_price ?? null
-    const pnlPct = currentPrice != null
-      ? ((currentPrice - h.avg_buy_price) / h.avg_buy_price) * 100
-      : null
+    const pnlPct = currentPrice != null ? ((currentPrice - h.avg_buy_price) / h.avg_buy_price) * 100 : null
     const value = (currentPrice ?? h.avg_buy_price) * h.shares
-    return { ...h, currentPrice, pnlPct, value, changePercent: p?.change_percent ?? null }
+    return { ...h, currentPrice, pnlPct, value, changePercent: p?.change_percent ?? null, changeAmount: p?.change ?? null }
   }).sort((a, b) => b.value - a.value)
 
   const invested = rows.reduce((s, r) => s + r.value, 0)
   const total = invested + CASH
   const cashPct = total > 0 ? (CASH / total) * 100 : 0
-
-  const sortedRows = rows.map(r => ({
-    ...r,
-    weight: total > 0 ? (r.value / total) * 100 : 0,
-  }))
-
-  const todayPnL = holdings.reduce((sum, h) => {
-    const p = prices[h.ticker]
-    if (!p?.change) return sum
-    return sum + h.shares * p.change
-  }, 0)
-
+  const sortedRows = rows.map(r => ({ ...r, weight: total > 0 ? (r.value / total) * 100 : 0 }))
+  const todayPnL = holdings.reduce((sum, h) => { const p = prices[h.ticker]; if (!p?.change) return sum; return sum + h.shares * p.change }, 0)
   const todayPnLPct = invested > 0 ? (todayPnL / (invested - todayPnL)) * 100 : 0
   const hasPrices = Object.keys(prices).length > 0
+
+  const holdingsWithWeights = sortedRows.map(r => ({
+    id: r.id, ticker: r.ticker, company_name: r.company_name, weight: r.weight,
+    conviction_score: r.conviction_score, target_allocation_pct: r.target_allocation_pct,
+    max_allocation_pct: r.max_allocation_pct, thesis: r.thesis,
+    thesis_status: r.thesis_status, thesis_break_conditions: r.thesis_break_conditions,
+  }))
+
+  const activeAlerts = alerts.filter(a => a.alert_status === 'active')
+  const criticalAlerts = activeAlerts.filter(a => a.priority >= 8).length
+  const warningAlerts = activeAlerts.filter(a => a.priority >= 5 && a.priority < 8).length
+
+  function handleHoldingSort(col: SortCol) {
+    setHoldingSort(prev => ({ col, dir: (prev.col === col && prev.dir === -1 ? 1 : -1) as 1 | -1 }))
+  }
+
+  const tableRows = [...sortedRows].sort((a, b) => {
+    const { col, dir } = holdingSort
+    let va: number, vb: number
+    if (col === 'day') { va = a.changePercent ?? 0; vb = b.changePercent ?? 0 }
+    else if (col === 'pnl') { va = a.pnlPct ?? 0; vb = b.pnlPct ?? 0 }
+    else if (col === 'conviction') { va = a.conviction_score ?? 0; vb = b.conviction_score ?? 0 }
+    else { va = a.weight; vb = b.weight }
+    return dir * (va - vb)
+  })
 
   return (
     <div className={dark ? 'dark' : ''}>
       <div
-        className="min-h-screen bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 transition-colors"
+        className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 transition-colors"
         style={{ fontFamily: 'var(--font-geist-sans), system-ui, sans-serif' }}
       >
-        {/* Header */}
-        <header className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
-          <div className="flex items-center gap-3">
-            <span className="text-base font-semibold tracking-tight">Investor OS</span>
+        {/* Header — minimal */}
+        <header className="flex items-center justify-between px-5 sm:px-8 py-4 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800">
+          <div className="flex items-center gap-2.5">
+            <span className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Investor OS</span>
             {pricesLoading && (
               <span className="text-xs text-zinc-400 dark:text-zinc-500">Updating…</span>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              {ilsRate && (
-                <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
-                  ₪{ilsRate.toFixed(3)}/$
-                </span>
-              )}
-              <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden text-xs font-medium">
-                <button
-                  onClick={() => { setCurrency('USD'); localStorage.setItem('currency', 'USD') }}
-                  className={`px-2.5 py-1.5 transition-colors ${currency === 'USD' ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
-                >
-                  $
-                </button>
-                <button
-                  onClick={() => { setCurrency('ILS'); localStorage.setItem('currency', 'ILS') }}
-                  className={`px-2.5 py-1.5 transition-colors ${currency === 'ILS' ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
-                >
-                  ₪
-                </button>
-              </div>
+            {ilsRate && (
+              <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums hidden sm:block">
+                ₪{ilsRate.toFixed(3)}/$
+              </span>
+            )}
+            <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden text-xs font-medium">
+              <button
+                onClick={() => { setCurrency('USD'); localStorage.setItem('currency', 'USD') }}
+                className={`px-2.5 py-1.5 transition-colors ${currency === 'USD' ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
+              >$</button>
+              <button
+                onClick={() => { setCurrency('ILS'); localStorage.setItem('currency', 'ILS') }}
+                className={`px-2.5 py-1.5 transition-colors ${currency === 'ILS' ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
+              >₪</button>
             </div>
             <button
               onClick={toggleTheme}
@@ -322,135 +407,254 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Main */}
-        <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+        {/* ── ZONES 1–3: narrow, centered, mobile-first ─── */}
+        <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-4">
 
-          {/* Summary cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-5">
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Total Portfolio Value</p>
-              <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">{loading ? '—' : fmtAmount(total)}</p>
+          {/* Zone 1 — Portfolio Pulse */}
+          <PortfolioPulse
+            totalValue={total}
+            cashPct={cashPct}
+            todayPnL={todayPnL}
+            todayPnLPct={todayPnLPct}
+            criticalAlerts={criticalAlerts}
+            warningAlerts={warningAlerts}
+            minCashPct={policy?.min_cash_pct}
+            maxCashPct={policy?.max_cash_pct}
+            loading={loading}
+            hasPrices={hasPrices}
+            formatAmount={fmtAmount}
+          />
+
+          {/* Zone 2 — What Needs Attention */}
+          <AttentionQueue
+            alerts={alerts}
+            newsItems={newsItems}
+          />
+
+          {/* Zone 3 — Coming Up */}
+          <UpcomingTimeline events={events} />
+
+          {/* Deep dive toggle */}
+          <button
+            onClick={() => setShowDetails(s => !s)}
+            className="w-full flex items-center justify-center gap-2 py-3 text-xs font-medium text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-900 transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={`transition-transform ${showDetails ? 'rotate-180' : ''}`}>
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+            {showDetails ? 'Hide Details' : 'Portfolio Details'}
+          </button>
+        </main>
+
+        {/* ── DEEP DIVE: full-width, expands on demand ─── */}
+        {showDetails && (
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-12 space-y-5">
+
+            {/* Risk Monitor + Decision Queue */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <RiskMonitor alerts={alerts} onStatusChange={updateAlertStatus} />
+              <DecisionQueue holdings={holdingsWithWeights} alerts={alerts} />
             </div>
 
-            <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-5">
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Cash</p>
-              <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">{fmtAmount(CASH)}</p>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{loading ? '—' : `${cashPct.toFixed(2)}%`}</p>
-            </div>
+            {/* Holdings table — premium dark */}
+            <div style={{ background: '#111111', border: '1px solid #232323', borderRadius: 12, overflow: 'hidden' }}>
+              {/* Header */}
+              <div style={{ borderBottom: '1px solid #232323' }} className="px-5 py-3.5 flex items-center justify-between">
+                <span style={{ color: '#ffffff', fontSize: 13, fontWeight: 600 }}>Holdings</span>
+                <button
+                  onClick={() => { setForm(EMPTY_FORM); setFormError(null); setShowModal(true) }}
+                  className="flex items-center gap-1.5 text-[#666666] hover:text-white transition-colors text-xs"
+                >
+                  <PlusIcon /> Add
+                </button>
+              </div>
 
-            <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-5">
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Today&apos;s P&L</p>
-              {!hasPrices || loading ? (
-                <p className="text-2xl font-bold text-zinc-500 dark:text-zinc-500">—</p>
+              {fetchError ? (
+                <p className="px-5 py-10 text-center text-sm" style={{ color: '#ff4d4d' }}>{fetchError}</p>
+              ) : loading ? (
+                <p className="px-5 py-10 text-center text-sm" style={{ color: '#555' }}>Loading…</p>
+              ) : tableRows.length === 0 ? (
+                <p className="px-5 py-10 text-center text-sm" style={{ color: '#555' }}>No holdings yet</p>
               ) : (
-                <>
-                  <p className={`text-2xl font-bold ${todayPnL >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                    {fmtAmount(todayPnL)}
-                  </p>
-                  <p className={`text-sm mt-1 ${todayPnL >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                    {pct(todayPnLPct)}
-                  </p>
-                </>
+                <div className="overflow-x-auto">
+                  <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#0d0d0d', borderBottom: '1px solid #232323' }}>
+                        <th className="text-left px-5 py-4" style={TH_STYLE}>Ticker</th>
+                        <th className="text-left px-4 py-4 hidden sm:table-cell" style={TH_STYLE}>Company</th>
+                        <th className="text-right px-4 py-4 hidden md:table-cell" style={TH_STYLE}>Price</th>
+                        <th className="text-right px-4 py-4 cursor-pointer select-none" style={TH_STYLE} onClick={() => handleHoldingSort('day')}>
+                          <span className="inline-flex items-center justify-end">Day % <SortCaret active={holdingSort.col === 'day'} dir={holdingSort.dir} /></span>
+                        </th>
+                        <th className="text-right px-4 py-4 cursor-pointer select-none hidden sm:table-cell" style={TH_STYLE} onClick={() => handleHoldingSort('pnl')}>
+                          <span className="inline-flex items-center justify-end">P&L % <SortCaret active={holdingSort.col === 'pnl'} dir={holdingSort.dir} /></span>
+                        </th>
+                        <th className="text-right px-4 py-4 hidden lg:table-cell" style={TH_STYLE}>P&L $</th>
+                        <th className="text-right px-4 py-4 cursor-pointer select-none" style={TH_STYLE} onClick={() => handleHoldingSort('weight')}>
+                          <span className="inline-flex items-center justify-end">Weight <SortCaret active={holdingSort.col === 'weight'} dir={holdingSort.dir} /></span>
+                        </th>
+                        <th className="text-right px-4 py-4 cursor-pointer select-none hidden lg:table-cell" style={TH_STYLE} onClick={() => handleHoldingSort('conviction')}>
+                          <span className="inline-flex items-center justify-end">Conv <SortCaret active={holdingSort.col === 'conviction'} dir={holdingSort.dir} /></span>
+                        </th>
+                        <th className="text-left px-4 py-4 hidden xl:table-cell" style={TH_STYLE}>Thesis</th>
+                        <th className="w-10" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tableRows.map((h, idx) => {
+                        const dotColor = THESIS_DOT_COLOR[(h.thesis_status ?? '').toLowerCase().replace(/\s+/g, '_')] ?? '#2a2a2a'
+                        const pnlDollar = h.currentPrice != null ? (h.currentPrice - h.avg_buy_price) * h.shares : null
+                        const dailyDollar = h.changeAmount != null ? h.changeAmount * h.shares : null
+                        const targetPct = h.target_allocation_pct ?? h.max_allocation_pct
+                        const maxPct = h.max_allocation_pct
+                        const barFill = maxPct && h.weight > maxPct ? '#ff4d4d'
+                          : targetPct && h.weight > targetPct * 0.85 ? '#f5a623'
+                          : '#00dc82'
+                        const barWidth = targetPct ? Math.min(100, (h.weight / targetPct) * 100) : null
+                        return (
+                          <tr
+                            key={h.id}
+                            className="transition-colors duration-150 hover:bg-[#171717]"
+                            style={{ borderBottom: idx < tableRows.length - 1 ? '1px solid #1a1a1a' : 'none' }}
+                          >
+                            {/* Ticker + thesis dot */}
+                            <td className="px-5 py-4">
+                              <div className="flex items-center gap-2.5">
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: dotColor, flexShrink: 0, display: 'inline-block' }} />
+                                <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, color: '#ffffff', letterSpacing: '-0.01em' }}>
+                                  {h.ticker}
+                                </span>
+                              </div>
+                            </td>
+                            {/* Company */}
+                            <td className="px-4 py-4 hidden sm:table-cell max-w-[160px]">
+                              <span className="block truncate" style={{ color: '#8b8b8b', fontSize: 12 }}>{h.company_name}</span>
+                            </td>
+                            {/* Price */}
+                            <td className="px-4 py-4 text-right hidden md:table-cell">
+                              <span style={{ color: '#e0e0e0', fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>
+                                {h.currentPrice != null ? fmtAmount(h.currentPrice, 2) : '—'}
+                              </span>
+                            </td>
+                            {/* Day % */}
+                            <td className="px-4 py-4 text-right">
+                              {h.changePercent != null ? (
+                                <div className="flex flex-col items-end">
+                                  <span style={{ color: h.changePercent >= 0 ? '#00dc82' : '#ff4d4d', fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                                    {h.changePercent >= 0 ? '+' : ''}{h.changePercent.toFixed(2)}% {h.changePercent >= 0 ? '↑' : '↓'}
+                                  </span>
+                                  {dailyDollar != null && (
+                                    <span style={{ color: dailyDollar >= 0 ? '#007a4a' : '#8b2020', fontSize: 10, fontVariantNumeric: 'tabular-nums', marginTop: 1 }}>
+                                      {dailyDollar >= 0 ? '+' : ''}{fmtAmount(Math.abs(dailyDollar), 0)}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span style={{ color: '#3a3a3a', fontSize: 13 }}>—</span>
+                              )}
+                            </td>
+                            {/* P&L % */}
+                            <td className="px-4 py-4 text-right hidden sm:table-cell">
+                              {h.pnlPct != null ? (
+                                <span style={{ color: h.pnlPct >= 0 ? '#00dc82' : '#ff4d4d', fontSize: 13, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+                                  {h.pnlPct >= 0 ? '+' : ''}{h.pnlPct.toFixed(2)}%
+                                </span>
+                              ) : (
+                                <span style={{ color: '#3a3a3a', fontSize: 13 }}>—</span>
+                              )}
+                            </td>
+                            {/* P&L $ */}
+                            <td className="px-4 py-4 text-right hidden lg:table-cell">
+                              {pnlDollar != null ? (
+                                <span style={{ color: pnlDollar >= 0 ? '#00dc82' : '#ff4d4d', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+                                  {(pnlDollar >= 0 ? '+' : '-') + fmtAmount(Math.abs(pnlDollar), 0)}
+                                </span>
+                              ) : (
+                                <span style={{ color: '#3a3a3a', fontSize: 12 }}>—</span>
+                              )}
+                            </td>
+                            {/* Weight vs target */}
+                            <td className="px-4 py-4 text-right">
+                              <div className="flex flex-col items-end gap-1">
+                                <div className="flex items-baseline gap-1.5">
+                                  <span style={{ color: '#e0e0e0', fontSize: 13, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+                                    {h.weight.toFixed(1)}%
+                                  </span>
+                                  {targetPct && (
+                                    <span style={{ color: '#555', fontSize: 11 }}>/ {targetPct}%</span>
+                                  )}
+                                </div>
+                                {barWidth != null && (
+                                  <div style={{ width: 48, height: 2, background: '#1e1e1e', borderRadius: 1, overflow: 'hidden' }}>
+                                    <div style={{ width: `${barWidth}%`, height: '100%', backgroundColor: barFill, borderRadius: 1 }} />
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            {/* Conviction dots */}
+                            <td className="px-4 py-4 hidden lg:table-cell">
+                              <div className="flex justify-end">
+                                <ConvictionDots score={h.conviction_score} />
+                              </div>
+                            </td>
+                            {/* Thesis pill */}
+                            <td className="px-4 py-4 hidden xl:table-cell">
+                              <ThesisPill status={h.thesis_status} />
+                            </td>
+                            {/* Delete */}
+                            <td className="px-3 py-4">
+                              {confirmDeleteId === h.id ? (
+                                <span className="flex items-center justify-end gap-2" style={{ fontSize: 11 }}>
+                                  <button onClick={() => setConfirmDeleteId(null)} style={{ color: '#555' }} className="hover:text-white transition-colors">Cancel</button>
+                                  <button onClick={() => handleDelete(h.id)} style={{ color: '#ff4d4d', fontWeight: 500 }} className="hover:opacity-70 transition-opacity">Del</button>
+                                </span>
+                              ) : (
+                                <button onClick={() => setConfirmDeleteId(h.id)} style={{ color: '#2a2a2a' }} className="flex ml-auto hover:text-[#ff4d4d] transition-colors">
+                                  <XIcon size={13} />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
-          </div>
 
-          {/* Holdings table */}
-          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Holdings</h2>
-              <button
-                onClick={() => { setForm(EMPTY_FORM); setFormError(null); setShowModal(true) }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-              >
-                <PlusIcon /> Add Stock
-              </button>
+            {/* Conviction + News */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <ConvictionMatrix holdings={holdingsWithWeights} cashPct={cashPct} />
+              <NewsIntelligence items={newsItems} />
             </div>
 
-            {fetchError ? (
-              <p className="px-5 py-8 text-center text-sm text-red-400">{fetchError}</p>
-            ) : loading ? (
-              <p className="px-5 py-8 text-center text-sm text-zinc-500">Loading…</p>
-            ) : sortedRows.length === 0 ? (
-              <p className="px-5 py-8 text-center text-sm text-zinc-500">No holdings yet — add your first stock</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60">
-                      <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Ticker</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider hidden sm:table-cell">Company</th>
-                      <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider hidden md:table-cell">Shares</th>
-                      <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Avg Buy</th>
-                      <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Current</th>
-                      <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">P&L%</th>
-                      <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Weight</th>
-                      <th className="w-16 px-3 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-                    {sortedRows.map(h => (
-                      <tr key={h.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors">
-                        <td className="px-4 py-3.5 font-mono font-semibold text-zinc-900 dark:text-zinc-100">{h.ticker}</td>
-                        <td className="px-4 py-3.5 text-zinc-500 dark:text-zinc-400 hidden sm:table-cell">{h.company_name}</td>
-                        <td className="px-4 py-3.5 text-right tabular-nums text-zinc-700 dark:text-zinc-300 hidden md:table-cell">
-                          {h.shares.toLocaleString('en-US', { maximumFractionDigits: 4 })}
-                        </td>
-                        <td className="px-4 py-3.5 text-right tabular-nums text-zinc-500 dark:text-zinc-400">
-                          {usd(h.avg_buy_price, 2)}
-                        </td>
-                        <td className="px-4 py-3.5 text-right tabular-nums font-medium text-zinc-900 dark:text-zinc-100">
-                          {h.currentPrice != null ? fmtAmount(h.currentPrice, 2) : '—'}
-                        </td>
-                        <td className={`px-4 py-3.5 text-right tabular-nums font-medium ${
-                          h.pnlPct == null ? 'text-zinc-400' :
-                          h.pnlPct >= 0 ? 'text-emerald-500' : 'text-red-500'
-                        }`}>
-                          {h.pnlPct != null ? pct(h.pnlPct) : '—'}
-                        </td>
-                        <td className="px-4 py-3.5 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
-                          {h.weight.toFixed(2)}%
-                        </td>
-                        <td className="px-3 py-3.5">
-                          {confirmDeleteId === h.id ? (
-                            <span className="flex items-center justify-end gap-2 text-xs">
-                              <button onClick={() => setConfirmDeleteId(null)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300">Cancel</button>
-                              <button onClick={() => handleDelete(h.id)} className="font-medium text-red-500 hover:text-red-600">Delete</button>
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => setConfirmDeleteId(h.id)}
-                              className="flex ml-auto text-zinc-300 dark:text-zinc-700 hover:text-red-400 dark:hover:text-red-400 transition-colors"
-                              aria-label={`Delete ${h.ticker}`}
-                            >
-                              <XIcon />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            {/* Thesis + Upcoming Events */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <ThesisMonitor holdings={holdingsWithWeights as ThesisHolding[]} newsItems={newsItems} />
+              <UpcomingEvents events={events as CalendarEvent[]} />
+            </div>
+
+            {/* Watchlist + Policy */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <WatchlistPanel items={watchlist} />
+              <PolicyWidget policy={policy} rules={rules} objectives={objectives} />
+            </div>
           </div>
-        </main>
+        )}
       </div>
 
       {/* Add Stock Modal */}
       {showModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
           onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}
         >
-          <div className="w-full max-w-md rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-2xl">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 dark:border-zinc-800">
               <h3 className="text-sm font-semibold">Add Stock</h3>
-              <button onClick={() => setShowModal(false)} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
-                <XIcon size={16} />
-              </button>
+              <button onClick={() => setShowModal(false)} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"><XIcon size={16} /></button>
             </div>
-
             <form onSubmit={handleAdd} className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -464,12 +668,10 @@ export default function Dashboard() {
                   </select>
                 </div>
               </div>
-
               <div>
                 <label className={labelClass}>Company Name *</label>
                 <input type="text" value={form.company_name} onChange={e => field('company_name', e.target.value)} placeholder="NVIDIA Corporation" className={inputClass} />
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass}>Shares *</label>
@@ -480,23 +682,17 @@ export default function Dashboard() {
                   <input type="number" min="0" step="any" value={form.avg_buy_price} onChange={e => field('avg_buy_price', e.target.value)} placeholder="450.00" className={inputClass} />
                 </div>
               </div>
-
               <div>
                 <label className={labelClass}>Conviction Score (1–10)</label>
                 <input type="number" min="1" max="10" value={form.conviction_score} onChange={e => field('conviction_score', e.target.value)} placeholder="8" className={inputClass} />
               </div>
-
               <div>
                 <label className={labelClass}>Thesis</label>
                 <textarea rows={3} value={form.thesis} onChange={e => field('thesis', e.target.value)} placeholder="Why are you investing in this stock?" className={inputClass + ' resize-none'} />
               </div>
-
               {formError && <p className="text-xs text-red-500 dark:text-red-400">{formError}</p>}
-
               <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-                  Cancel
-                </button>
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Cancel</button>
                 <button type="submit" disabled={submitting} className="px-4 py-2 rounded-lg text-sm font-medium bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-300 disabled:opacity-50 transition-colors">
                   {submitting ? 'Saving…' : 'Add Stock'}
                 </button>
