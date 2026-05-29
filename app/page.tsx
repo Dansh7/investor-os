@@ -112,7 +112,7 @@ const THESIS_DOT_COLOR: Record<string, string> = {
   broken:   '#FF5A5A',
 }
 
-const TH_STYLE = { color: '#5A5A5A', fontSize: 10, fontWeight: 700 as const, letterSpacing: '0.12em', textTransform: 'uppercase' as const }
+const TH_STYLE = { color: '#5A5A5A', fontSize: 11, fontWeight: 700 as const, letterSpacing: '0.12em', textTransform: 'uppercase' as const }
 
 function ConvictionDots({ score }: { score: number | null | undefined }) {
   if (score == null) return <span style={{ color: '#333', fontSize: 12 }}>—</span>
@@ -427,7 +427,7 @@ export default function Dashboard() {
         {/* 2. Holdings — full width primary workspace */}
           <div style={{ background: '#111111', border: '1px solid #1a1a1a', borderRadius: 16, overflow: 'hidden' }}>
           <div style={{ borderBottom: '1px solid #1a1a1a', padding: '16px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#5A5A5A' }}>אחזקות</span>
+            <span style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#5A5A5A' }}>אחזקות</span>
             <button
               onClick={() => { setForm(EMPTY_FORM); setFormError(null); setShowModal(true) }}
               style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#4A4A4A', fontSize: 12, cursor: 'pointer', transition: 'color 0.12s' }}
@@ -493,23 +493,23 @@ export default function Dashboard() {
                         <td className="px-7 py-5">
                           <div className="flex items-center gap-3">
                             <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: dotColor, flexShrink: 0, display: 'inline-block' }} />
-                            <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, color: '#FFFFFF', letterSpacing: '0.02em' }}>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 17, color: '#FFFFFF', letterSpacing: '0.02em' }}>
                               {h.ticker}
                             </span>
                           </div>
                         </td>
                         <td className="px-5 py-5 hidden sm:table-cell max-w-[180px]">
-                          <span className="block truncate" style={{ color: '#9A9A9A', fontSize: 13 }}>{h.company_name}</span>
+                          <span className="block truncate" style={{ color: '#9A9A9A', fontSize: 15 }}>{h.company_name}</span>
                         </td>
                         <td className="px-5 py-5 text-right hidden md:table-cell">
-                          <span style={{ color: '#E0E0E0', fontSize: 14, fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>
+                          <span style={{ color: '#E0E0E0', fontSize: 16, fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>
                             {h.currentPrice != null ? fmtAmount(h.currentPrice, 2) : '—'}
                           </span>
                         </td>
                         <td className="px-5 py-5 text-right">
                           {h.changePercent != null ? (
                             <div className="flex flex-col items-end">
-                              <span style={{ color: h.changePercent >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 14, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                              <span style={{ color: h.changePercent >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 16, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                                 {h.changePercent >= 0 ? '+' : ''}{h.changePercent.toFixed(2)}%
                               </span>
                               {dailyDollar != null && (
@@ -519,31 +519,31 @@ export default function Dashboard() {
                               )}
                             </div>
                           ) : (
-                            <span style={{ color: '#2E2E2E', fontSize: 14 }}>—</span>
+                            <span style={{ color: '#2E2E2E', fontSize: 16 }}>—</span>
                           )}
                         </td>
                         <td className="px-5 py-5 text-right hidden sm:table-cell">
                           {h.pnlPct != null ? (
-                            <span style={{ color: h.pnlPct >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 14, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                            <span style={{ color: h.pnlPct >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 16, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                               {h.pnlPct >= 0 ? '+' : ''}{h.pnlPct.toFixed(2)}%
                             </span>
                           ) : (
-                            <span style={{ color: '#2E2E2E', fontSize: 14 }}>—</span>
+                            <span style={{ color: '#2E2E2E', fontSize: 16 }}>—</span>
                           )}
                         </td>
                         <td className="px-5 py-5 text-right hidden lg:table-cell">
                           {pnlDollar != null ? (
-                            <span style={{ color: pnlDollar >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 13, fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>
+                            <span style={{ color: pnlDollar >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 15, fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>
                               {(pnlDollar >= 0 ? '+' : '-') + fmtAmount(Math.abs(pnlDollar), 0)}
                             </span>
                           ) : (
-                            <span style={{ color: '#2E2E2E', fontSize: 13 }}>—</span>
+                            <span style={{ color: '#2E2E2E', fontSize: 15 }}>—</span>
                           )}
                         </td>
                         <td className="px-5 py-5 text-right">
                           <div className="flex flex-col items-end gap-1.5">
                             <div className="flex items-baseline gap-1.5">
-                              <span style={{ color: '#E0E0E0', fontSize: 14, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                              <span style={{ color: '#E0E0E0', fontSize: 16, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                                 {h.weight.toFixed(1)}%
                               </span>
                               {targetPct && (
@@ -601,9 +601,9 @@ export default function Dashboard() {
                 onClick={() => setActiveTab(tab.id)}
                 className="whitespace-nowrap flex-shrink-0 transition-colors"
                 style={{
-                  padding: '12px 18px',
-                  fontSize: 12,
-                  fontWeight: activeTab === tab.id ? 600 : 500,
+                  padding: '12px 20px',
+                  fontSize: 14,
+                  fontWeight: activeTab === tab.id ? 600 : 400,
                   letterSpacing: '0.02em',
                   color: activeTab === tab.id ? '#FFFFFF' : '#4A4A4A',
                   borderBottom: `2px solid ${activeTab === tab.id ? '#FFFFFF' : 'transparent'}`,

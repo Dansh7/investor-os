@@ -220,7 +220,7 @@ function buildItems(alerts: AlertRow[], newsItems: NewsItem[]): AttentionItem[] 
 function ImpactLevel({ value }: { value: number }) {
   const label = value >= 8 ? 'גבוה' : value >= 6 ? 'בינוני' : value >= 4 ? 'נמוך' : 'מינימלי'
   const color = value >= 8 ? '#FF5A5A' : value >= 6 ? '#F5A623' : '#7A7A7A'
-  return <span style={{ fontSize: 11, fontWeight: 600, color }}>השפעה {label}</span>
+  return <span style={{ fontSize: 13, fontWeight: 600, color }}>השפעה {label}</span>
 }
 
 function AttentionCard({ item, isLast }: { item: AttentionItem; isLast?: boolean }) {
@@ -247,37 +247,37 @@ function AttentionCard({ item, isLast }: { item: AttentionItem; isLast?: boolean
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
       {/* Row 1: dot + ticker + category + badge */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 7, height: 7, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-          <span style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 700, color: '#FFFFFF', letterSpacing: '-0.01em' }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+          <span style={{ fontFamily: 'monospace', fontSize: 17, fontWeight: 700, color: '#FFFFFF', letterSpacing: '0.02em' }}>
             {item.ticker}
           </span>
-          <span style={{ fontSize: 12, color: '#7A7A7A', fontWeight: 400 }}>
+          <span style={{ fontSize: 14, color: '#8A8A8A', fontWeight: 500 }}>
             {heCategory(item.category)}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {item.portfolioImpact != null && <ImpactLevel value={item.portfolioImpact} />}
-          <span style={{ background: SEV_BADGE[item.priority].bg, color: SEV_BADGE[item.priority].color, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, letterSpacing: '0.04em', flexShrink: 0 }}>
+          <span style={{ background: SEV_BADGE[item.priority].bg, color: SEV_BADGE[item.priority].color, fontSize: 13, fontWeight: 700, padding: '3px 10px', borderRadius: 5, letterSpacing: '0.02em', flexShrink: 0 }}>
             {SEV_LABEL[item.priority]}
           </span>
         </div>
       </div>
 
-      {/* Hebrew summary — primary, large */}
-      <p style={{ fontSize: 14, fontWeight: 500, color: '#E8E8E8', lineHeight: 1.6 }}>
+      {/* Hebrew summary — primary */}
+      <p style={{ fontSize: 18, fontWeight: 500, color: '#E8E8E8', lineHeight: 1.65 }}>
         {heSummary}
       </p>
 
       {expanded && (
-        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #1e1e1e' }}>
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #1e1e1e' }}>
           {item.whyItMatters && (
-            <p style={{ fontSize: 11, color: '#4A4A4A', lineHeight: 1.55, marginBottom: 10, fontStyle: 'italic' }}>
+            <p style={{ fontSize: 15, color: '#5A5A5A', lineHeight: 1.55, marginBottom: 10, fontStyle: 'italic' }}>
               {item.whyItMatters}
             </p>
           )}
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 11, color: '#4A4A4A' }}>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: '#5A5A5A' }}>
             {date && <span>{date}</span>}
             {item.urgency != null && <span>דחיפות {item.urgency.toFixed(0)}/10</span>}
             {item.portfolioImpact != null && <span>השפעה {item.portfolioImpact.toFixed(0)}/10</span>}
@@ -303,7 +303,7 @@ export function AttentionQueue({ alerts, newsItems }: Props) {
 
       {/* Header */}
       <div style={{ padding: '16px 28px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#5A5A5A' }}>
+        <span style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#5A5A5A' }}>
           מה דורש תשומת לב
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

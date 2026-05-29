@@ -54,11 +54,13 @@ function deriveMood(fg: number | null, vix: number | null): { label: string; col
 }
 
 // ─── Arc gauge SVG ────────────────────────────────────────────────────────────
-// Semicircle, center at (30, 30), radius 26, viewBox 0 0 60 34.
-// value 0 → left end (4,30), value 100 → right end (56,30).
+// Semicircle gauge. cx=50, cy=52, r=46. viewBox "0 0 100 56".
+// v=0  → left  (4, 52)
+// v=50 → top   (50, 6)
+// v=100→ right (96, 52)
 
 function ArcGauge({ value, color }: { value: number; color: string }) {
-  const cx = 30, cy = 30, r = 26, nLen = 19
+  const cx = 50, cy = 52, r = 46, nLen = 36
 
   const pt = (v: number) => {
     const a = Math.PI * (1 - v / 100)
@@ -75,27 +77,30 @@ function ArcGauge({ value, color }: { value: number; color: string }) {
 
   return (
     <svg
-      width="60" height="34"
-      viewBox="0 0 60 34"
+      width="100" height="56"
+      viewBox="0 0 100 56"
       style={{ display: 'block', flexShrink: 0 }}
     >
-      {/* Track */}
+      {/* Background track */}
       <path
         d={`M ${pt(0).x} ${pt(0).y} A ${r} ${r} 0 0 1 ${pt(100).x} ${pt(100).y}`}
-        fill="none" stroke="#1C1C1C" strokeWidth="5" strokeLinecap="round"
+        fill="none" stroke="#1A1A1A" strokeWidth="7" strokeLinecap="round"
       />
-      {/* Zone fills */}
-      <path d={seg(0, 25)}   fill="none" stroke="#FF5A5A" strokeWidth="5" opacity="0.55" />
-      <path d={seg(25, 45)}  fill="none" stroke="#F5A623" strokeWidth="5" opacity="0.55" />
-      <path d={seg(45, 55)}  fill="none" stroke="#555555" strokeWidth="5" opacity="0.40" />
-      <path d={seg(55, 75)}  fill="none" stroke="#00DC82" strokeWidth="5" opacity="0.55" />
-      <path d={seg(75, 100)} fill="none" stroke="#00DC82" strokeWidth="5" opacity="0.55" />
-      {/* Needle */}
+      {/* Colored zone segments */}
+      <path d={seg(0, 25)}   fill="none" stroke="#FF5A5A" strokeWidth="7" opacity="0.70" />
+      <path d={seg(25, 45)}  fill="none" stroke="#F5A623" strokeWidth="7" opacity="0.70" />
+      <path d={seg(45, 55)}  fill="none" stroke="#555555" strokeWidth="7" opacity="0.50" />
+      <path d={seg(55, 75)}  fill="none" stroke="#00DC82" strokeWidth="7" opacity="0.60" />
+      <path d={seg(75, 100)} fill="none" stroke="#00DC82" strokeWidth="7" opacity="0.80" />
+      {/* Needle shaft */}
       <line
         x1={cx} y1={cy} x2={tip.x} y2={tip.y}
-        stroke={color} strokeWidth="1.5" strokeLinecap="round"
+        stroke={color} strokeWidth="2" strokeLinecap="round"
       />
-      <circle cx={cx} cy={cy} r="2.5" fill={color} />
+      {/* Needle base circle */}
+      <circle cx={cx} cy={cy} r="3.5" fill={color} />
+      {/* Small cap at tip */}
+      <circle cx={tip.x} cy={tip.y} r="1.5" fill={color} />
     </svg>
   )
 }
@@ -103,7 +108,7 @@ function ArcGauge({ value, color }: { value: number; color: string }) {
 // ─── Divider ──────────────────────────────────────────────────────────────────
 
 const DIV = (
-  <div style={{ width: 1, height: 22, background: '#1A1A1A', margin: '0 28px', flexShrink: 0 }} />
+  <div style={{ width: 1, height: 32, background: '#1A1A1A', margin: '0 32px', flexShrink: 0 }} />
 )
 
 // ─── MacroStrip ───────────────────────────────────────────────────────────────
@@ -128,7 +133,7 @@ export function MacroStrip({ vix }: Props) {
         borderBottom: '1px solid #161616',
         display: 'flex',
         alignItems: 'center',
-        height: 52,
+        height: 72,
         padding: '0 40px',
         gap: 0,
         overflowX: 'auto',
@@ -154,20 +159,20 @@ export function MacroStrip({ vix }: Props) {
         </span>
 
         {!macro.loaded ? (
-          <span style={{ fontSize: 20, color: '#252525', fontWeight: 700 }}>—</span>
+          <span style={{ fontSize: 28, color: '#252525', fontWeight: 700 }}>—</span>
         ) : fg == null ? (
-          <span style={{ fontSize: 12, color: '#3A3A3A' }}>N/A</span>
+          <span style={{ fontSize: 13, color: '#3A3A3A' }}>לא זמין</span>
         ) : (
           <>
             <ArcGauge value={fg} color={fgColor(fg)} />
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1, gap: 3 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1, gap: 5 }}>
               <span style={{
-                fontSize: 22, fontWeight: 800, color: fgColor(fg),
-                fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.03em',
+                fontSize: 28, fontWeight: 800, color: fgColor(fg),
+                fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.04em',
               }}>
                 {fg}
               </span>
-              <span style={{ fontSize: 10, fontWeight: 600, color: fgColor(fg), whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: fgColor(fg), whiteSpace: 'nowrap' }}>
                 {fgLabel(fg)}
               </span>
             </div>
@@ -186,16 +191,16 @@ export function MacroStrip({ vix }: Props) {
           VIX
         </span>
         {vix == null ? (
-          <span style={{ fontSize: 20, color: '#252525', fontWeight: 700 }}>—</span>
+          <span style={{ fontSize: 28, color: '#252525', fontWeight: 700 }}>—</span>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1, gap: 3 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1, gap: 5 }}>
             <span style={{
-              fontSize: 22, fontWeight: 800, color: vixColor(vix),
-              fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.03em',
+              fontSize: 28, fontWeight: 800, color: vixColor(vix),
+              fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.04em',
             }}>
               {vix.toFixed(1)}
             </span>
-            <span style={{ fontSize: 10, fontWeight: 600, color: vixColor(vix), whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: vixColor(vix), whiteSpace: 'nowrap' }}>
               {vixLabel(vix)}
             </span>
           </div>
@@ -213,7 +218,7 @@ export function MacroStrip({ vix }: Props) {
           מצב שוק
         </span>
         <span style={{
-          fontSize: 16, fontWeight: 800, color: mood.color,
+          fontSize: 22, fontWeight: 800, color: mood.color,
           letterSpacing: '-0.02em', whiteSpace: 'nowrap',
         }}>
           {mood.label}
