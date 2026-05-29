@@ -56,22 +56,51 @@ interface Props {
   newsItems: NewsItem[]
 }
 
+// Priority visual config
 const SEV_BORDER: Record<string, string> = {
-  critical: '#ff4d4d',
-  high:     '#f5a623',
-  medium:   '#2a2a2a',
+  critical: '#FF5A5A',
+  high:     '#F5A623',
+  medium:   '#242424',
 }
 
 const SEV_BADGE: Record<string, { bg: string; color: string }> = {
-  critical: { bg: 'rgba(255,77,77,0.10)',  color: '#ff4d4d' },
-  high:     { bg: 'rgba(245,166,35,0.10)', color: '#f5a623' },
-  medium:   { bg: 'rgba(100,100,100,0.08)', color: '#6b6b6b' },
+  critical: { bg: 'rgba(255,90,90,0.12)',  color: '#FF5A5A' },
+  high:     { bg: 'rgba(245,166,35,0.12)', color: '#F5A623' },
+  medium:   { bg: 'rgba(100,100,100,0.10)', color: '#7A7A7A' },
 }
 
 const SEV_LABEL: Record<string, string> = {
-  critical: 'Critical',
-  high:     'Review',
-  medium:   'Monitor',
+  critical: 'קריטי',
+  high:     'לבדיקה',
+  medium:   'מעקב',
+}
+
+// Human-language category → Hebrew translation
+const CATEGORY_HE: Record<string, string> = {
+  'Thesis trigger':       'פריצת תזה',
+  'Thesis concern':       'חשש בתזה',
+  'Earnings activity':    'פעילות רווחים',
+  'Earnings & guidance':  'רווחים והנחיה',
+  'Financing activity':   'פעילות מימון',
+  'Management change':    'שינוי הנהלה',
+  'Regulatory activity':  'פעילות רגולטורית',
+  'Regulatory event':     'אירוע רגולטורי',
+  'Acquisition activity': 'פעילות רכישה',
+  'Market guidance':      'הנחיית שוק',
+  'Dilution risk':        'סיכון דילול',
+  'Dividend event':       'אירוע דיבידנד',
+  'Delisting notice':     'הודעת מחיקה',
+  'Activity detected':    'פעילות זוהתה',
+  'Auditor change':       'שינוי רואה חשבון',
+  'Critical alert':       'התראה קריטית',
+  'Warning alert':        'אזהרה',
+  'No thesis':            'ללא תזה',
+  'Low conviction':       'אמון נמוך',
+  'Overweight':           'חשיפת יתר',
+}
+
+function heCategory(cat: string): string {
+  return CATEGORY_HE[cat] ?? cat
 }
 
 function firstSentence(text: string, maxLen = 110): string {
@@ -161,46 +190,54 @@ function buildItems(alerts: AlertRow[], newsItems: NewsItem[]): AttentionItem[] 
 }
 
 function ImpactLevel({ value }: { value: number }) {
-  const label = value >= 8 ? 'High' : value >= 6 ? 'Medium' : value >= 4 ? 'Low' : 'Minimal'
-  const color = value >= 8 ? '#ff4d4d' : value >= 6 ? '#f5a623' : '#555'
-  return <span className="text-xs font-medium" style={{ color }}>Impact {label}</span>
+  const label = value >= 8 ? 'גבוה' : value >= 6 ? 'בינוני' : value >= 4 ? 'נמוך' : 'מינימלי'
+  const color = value >= 8 ? '#FF5A5A' : value >= 6 ? '#F5A623' : '#7A7A7A'
+  return <span style={{ fontSize: 11, fontWeight: 600, color }}>השפעה {label}</span>
 }
 
 function AttentionCard({ item, isLast }: { item: AttentionItem; isLast?: boolean }) {
   const [expanded, setExpanded] = useState(false)
 
   const date = item.timestamp
-    ? new Date(item.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    ? new Date(item.timestamp).toLocaleDateString('he-IL', { month: 'short', day: 'numeric' })
     : null
 
   return (
     <button
       onClick={() => setExpanded(e => !e)}
-      className="w-full text-left px-5 py-4 transition-colors hover:bg-[#171717]"
+      className="w-full text-left transition-colors"
       style={{
+        padding: '16px 20px',
         borderLeft: `3px solid ${SEV_BORDER[item.priority]}`,
         borderBottom: isLast ? 'none' : '1px solid #1a1a1a',
+        background: 'transparent',
       }}
+      onMouseEnter={e => (e.currentTarget.style.background = '#171717')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-sm font-bold text-white tracking-tight">{item.ticker}</span>
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={SEV_BADGE[item.priority]}>
+      <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
+        <div className="flex items-center gap-2.5">
+          <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#FFFFFF', letterSpacing: '-0.01em' }}>
+            {item.ticker}
+          </span>
+          <span style={{ ...SEV_BADGE[item.priority], fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, letterSpacing: '0.04em' }}>
             {SEV_LABEL[item.priority]}
           </span>
         </div>
         {item.portfolioImpact != null && <ImpactLevel value={item.portfolioImpact} />}
       </div>
 
-      <p className="text-sm font-medium text-white mb-1">{item.category}</p>
+      <p style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF', marginBottom: 4 }}>
+        {heCategory(item.category)}
+      </p>
 
-      <p className="text-xs leading-relaxed" style={{ color: '#666' }}>{item.whyItMatters}</p>
+      <p style={{ fontSize: 12, color: '#7A7A7A', lineHeight: 1.5 }}>{item.whyItMatters}</p>
 
       {expanded && (
-        <div className="flex items-center gap-4 mt-3 pt-3 text-xs" style={{ borderTop: '1px solid #1e1e1e', color: '#555' }}>
+        <div className="flex items-center gap-4 text-xs" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #1e1e1e', color: '#4A4A4A' }}>
           {date && <span>{date}</span>}
-          {item.urgency != null && <span>Urgency {item.urgency.toFixed(0)}/10</span>}
-          {item.portfolioImpact != null && <span>Portfolio impact {item.portfolioImpact.toFixed(0)}/10</span>}
+          {item.urgency != null && <span>דחיפות {item.urgency.toFixed(0)}/10</span>}
+          {item.portfolioImpact != null && <span>השפעה על תיק {item.portfolioImpact.toFixed(0)}/10</span>}
         </div>
       )}
     </button>
@@ -214,40 +251,48 @@ export function AttentionQueue({ alerts, newsItems }: Props) {
   const hasMore = items.length > 5
 
   const criticalCount = items.filter(i => i.priority === 'critical').length
-  const highCount = items.filter(i => i.priority === 'high').length
+  const highCount     = items.filter(i => i.priority === 'high').length
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: '#111111', border: '1px solid #232323' }}>
-      <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #232323' }}>
-        <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#555' }}>
-          What Needs Attention
+    <div className="rounded-2xl overflow-hidden" style={{ background: '#111111', border: '1px solid #242424' }}>
+      <div
+        className="flex items-center justify-between"
+        style={{ padding: '14px 20px', borderBottom: '1px solid #242424' }}
+      >
+        <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#4A4A4A' }}>
+          מה דורש תשומת לב
         </p>
         <div className="flex items-center gap-2">
           {criticalCount > 0 && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,77,77,0.10)', color: '#ff4d4d' }}>
-              {criticalCount} critical
+            <span style={{ background: 'rgba(255,90,90,0.12)', color: '#FF5A5A', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4 }}>
+              {criticalCount} קריטי
             </span>
           )}
           {highCount > 0 && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(245,166,35,0.10)', color: '#f5a623' }}>
-              {highCount} active
+            <span style={{ background: 'rgba(245,166,35,0.12)', color: '#F5A623', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4 }}>
+              {highCount} לבדיקה
             </span>
           )}
           {items.length === 0 && (
-            <span className="text-xs font-medium" style={{ color: '#00dc82' }}>All clear</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#00DC82' }}>הכל תקין</span>
           )}
         </div>
       </div>
 
       {items.length === 0 ? (
-        <div className="px-6 py-10 text-center">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: 'rgba(0,220,130,0.08)' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00dc82" strokeWidth="2.5" strokeLinecap="round">
+        <div style={{ padding: '40px 24px', textAlign: 'center' }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: '50%',
+            background: 'rgba(0,220,130,0.08)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 12px',
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00DC82" strokeWidth="2.5" strokeLinecap="round">
               <path d="M20 6L9 17l-5-5" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-white">No active signals</p>
-          <p className="text-xs mt-1" style={{ color: '#555' }}>Portfolio is operating as expected</p>
+          <p style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF', marginBottom: 4 }}>אין סיגנלים פעילים</p>
+          <p style={{ fontSize: 12, color: '#4A4A4A' }}>התיק פועל כצפוי</p>
         </div>
       ) : (
         <div>
@@ -257,10 +302,10 @@ export function AttentionQueue({ alerts, newsItems }: Props) {
           {hasMore && (
             <button
               onClick={() => setShowAll(s => !s)}
-              className="w-full px-5 py-3 text-xs font-medium transition-colors hover:text-white"
-              style={{ color: '#555', borderTop: '1px solid #1a1a1a' }}
+              className="w-full transition-colors hover:text-white"
+              style={{ padding: '12px 20px', fontSize: 12, fontWeight: 500, color: '#4A4A4A', borderTop: '1px solid #1a1a1a', textAlign: 'center' }}
             >
-              {showAll ? 'Show less' : `${items.length - 5} more items →`}
+              {showAll ? 'הצג פחות' : `עוד ${items.length - 5} פריטים →`}
             </button>
           )}
         </div>

@@ -89,12 +89,12 @@ type SortCol = 'weight' | 'day' | 'pnl' | 'conviction'
 type Tab = 'intelligence' | 'thesis' | 'risk' | 'events' | 'watchlist' | 'policy'
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'intelligence',  label: 'Intelligence' },
-  { id: 'thesis',        label: 'Thesis' },
-  { id: 'risk',          label: 'Risk & Decisions' },
-  { id: 'events',        label: 'Events' },
-  { id: 'watchlist',     label: 'Watchlist' },
-  { id: 'policy',        label: 'Policy' },
+  { id: 'intelligence',  label: 'אינטליגנציה' },
+  { id: 'thesis',        label: 'תזה' },
+  { id: 'risk',          label: 'סיכון והחלטות' },
+  { id: 'events',        label: 'אירועים' },
+  { id: 'watchlist',     label: 'מעקב' },
+  { id: 'policy',        label: 'מדיניות' },
 ]
 
 function timeAgo(d: Date): string {
@@ -105,17 +105,17 @@ function timeAgo(d: Date): string {
 }
 
 const THESIS_DOT_COLOR: Record<string, string> = {
-  intact: '#00dc82',
-  weakening: '#f5a623',
-  at_risk: '#f5a623',
-  broken: '#ff4d4d',
+  intact:   '#00DC82',
+  weakening:'#F5A623',
+  at_risk:  '#F5A623',
+  broken:   '#FF5A5A',
 }
 
-const TH_STYLE = { color: '#555', fontSize: 11, fontWeight: 500 as const, letterSpacing: '0.08em', textTransform: 'uppercase' as const }
+const TH_STYLE = { color: '#4A4A4A', fontSize: 10, fontWeight: 700 as const, letterSpacing: '0.10em', textTransform: 'uppercase' as const }
 
 function ConvictionDots({ score }: { score: number | null | undefined }) {
-  if (score == null) return <span style={{ color: '#3a3a3a', fontSize: 12 }}>—</span>
-  const fill = score >= 8 ? '#00dc82' : score >= 5 ? '#f5a623' : '#ff4d4d'
+  if (score == null) return <span style={{ color: '#333', fontSize: 12 }}>—</span>
+  const fill = score >= 8 ? '#00DC82' : score >= 5 ? '#F5A623' : '#FF5A5A'
   return (
     <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
       {Array.from({ length: 10 }, (_, i) => (
@@ -128,28 +128,28 @@ function ConvictionDots({ score }: { score: number | null | undefined }) {
 function ThesisPill({ status }: { status: string | null | undefined }) {
   const ts = (status ?? '').toLowerCase().replace(/\s+/g, '_')
   const cfg: Record<string, { label: string; bg: string; color: string }> = {
-    intact:    { label: 'Intact',    bg: 'rgba(0,220,130,0.08)',  color: '#00dc82' },
-    weakening: { label: 'Weakening', bg: 'rgba(245,166,35,0.10)', color: '#f5a623' },
-    at_risk:   { label: 'At Risk',   bg: 'rgba(245,166,35,0.10)', color: '#f5a623' },
-    broken:    { label: 'Broken',    bg: 'rgba(255,77,77,0.10)',  color: '#ff4d4d' },
+    intact:    { label: 'תקין',      bg: 'rgba(0,220,130,0.08)',  color: '#00DC82' },
+    weakening: { label: 'נחלש',      bg: 'rgba(245,166,35,0.10)', color: '#F5A623' },
+    at_risk:   { label: 'בסיכון',    bg: 'rgba(245,166,35,0.10)', color: '#F5A623' },
+    broken:    { label: 'נשבר',      bg: 'rgba(255,90,90,0.10)',  color: '#FF5A5A' },
   }
-  const { label, bg, color } = cfg[ts] ?? { label: 'No thesis', bg: 'rgba(100,100,100,0.07)', color: '#555' }
+  const { label, bg, color } = cfg[ts] ?? { label: 'ללא תזה', bg: 'rgba(100,100,100,0.07)', color: '#4A4A4A' }
   return (
-    <span style={{ background: bg, color, fontSize: 11, padding: '3px 8px', borderRadius: 4, fontWeight: 500, letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
+    <span style={{ background: bg, color, fontSize: 10, padding: '3px 8px', borderRadius: 4, fontWeight: 600, letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
       {label}
     </span>
   )
 }
 
 function SortCaret({ active, dir }: { active: boolean; dir: 1 | -1 }) {
-  return <span style={{ color: active ? '#8b8b8b' : '#333', fontSize: 9, marginLeft: 2 }}>{active ? (dir === 1 ? '↑' : '↓') : '↕'}</span>
+  return <span style={{ color: active ? '#7A7A7A' : '#2e2e2e', fontSize: 9, marginLeft: 2 }}>{active ? (dir === 1 ? '↑' : '↓') : '↕'}</span>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 const inputClass =
   'w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#444]'
-const inputStyle = { background: '#1a1a1a', border: '1px solid #2e2e2e', color: '#e0e0e0' }
+const inputStyle = { background: '#1a1a1a', border: '1px solid #2e2e2e', color: '#FFFFFF' }
 const labelClass = 'block text-xs font-medium mb-1'
 const labelStyle = { color: '#666' }
 
@@ -367,12 +367,12 @@ export default function Dashboard() {
   return (
     <div
       className="min-h-screen antialiased"
-      style={{ background: '#0a0a0a', color: '#ffffff', fontFamily: 'var(--font-geist-sans), system-ui, sans-serif' }}
+      style={{ background: '#090909', color: '#FFFFFF', fontFamily: 'var(--font-geist-sans), system-ui, sans-serif' }}
     >
       {/* Header */}
       <header
         className="flex items-center justify-between px-5 sm:px-8 py-4"
-        style={{ background: '#111111', borderBottom: '1px solid #232323' }}
+        style={{ background: '#111111', borderBottom: '1px solid #1e1e1e' }}
       >
         <div className="flex items-center gap-2.5">
           <span className="text-sm font-semibold tracking-tight text-white">Investor OS</span>
@@ -423,9 +423,9 @@ export default function Dashboard() {
         />
 
         {/* 2. Holdings Table */}
-        <div style={{ background: '#111111', border: '1px solid #232323', borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ borderBottom: '1px solid #232323' }} className="px-5 py-3.5 flex items-center justify-between">
-            <span style={{ color: '#ffffff', fontSize: 13, fontWeight: 600 }}>Holdings</span>
+        <div style={{ background: '#111111', border: '1px solid #242424', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ borderBottom: '1px solid #242424' }} className="px-5 py-3.5 flex items-center justify-between">
+            <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#4A4A4A' }}>אחזקות</span>
             <button
               onClick={() => { setForm(EMPTY_FORM); setFormError(null); setShowModal(true) }}
               className="flex items-center gap-1.5 text-[#666666] hover:text-white transition-colors text-xs"
@@ -435,7 +435,7 @@ export default function Dashboard() {
           </div>
 
           {fetchError ? (
-            <p className="px-5 py-10 text-center text-sm" style={{ color: '#ff4d4d' }}>{fetchError}</p>
+            <p className="px-5 py-10 text-center text-sm" style={{ color: '#FF5A5A' }}>{fetchError}</p>
           ) : loading ? (
             <p className="px-5 py-10 text-center text-sm" style={{ color: '#555' }}>Loading…</p>
           ) : tableRows.length === 0 ? (
@@ -444,24 +444,24 @@ export default function Dashboard() {
             <div className="overflow-x-auto">
               <table className="w-full" style={{ borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ background: '#0d0d0d', borderBottom: '1px solid #232323' }}>
-                    <th className="text-left px-5 py-4" style={TH_STYLE}>Ticker</th>
-                    <th className="text-left px-4 py-4 hidden sm:table-cell" style={TH_STYLE}>Company</th>
-                    <th className="text-right px-4 py-4 hidden md:table-cell" style={TH_STYLE}>Price</th>
+                  <tr style={{ background: '#0d0d0d', borderBottom: '1px solid #1e1e1e' }}>
+                    <th className="text-left px-5 py-4" style={TH_STYLE}>נייר</th>
+                    <th className="text-left px-4 py-4 hidden sm:table-cell" style={TH_STYLE}>חברה</th>
+                    <th className="text-right px-4 py-4 hidden md:table-cell" style={TH_STYLE}>מחיר</th>
                     <th className="text-right px-4 py-4 cursor-pointer select-none" style={TH_STYLE} onClick={() => handleHoldingSort('day')}>
-                      <span className="inline-flex items-center justify-end">Day % <SortCaret active={holdingSort.col === 'day'} dir={holdingSort.dir} /></span>
+                      <span className="inline-flex items-center justify-end">היום % <SortCaret active={holdingSort.col === 'day'} dir={holdingSort.dir} /></span>
                     </th>
                     <th className="text-right px-4 py-4 cursor-pointer select-none hidden sm:table-cell" style={TH_STYLE} onClick={() => handleHoldingSort('pnl')}>
                       <span className="inline-flex items-center justify-end">P&L % <SortCaret active={holdingSort.col === 'pnl'} dir={holdingSort.dir} /></span>
                     </th>
                     <th className="text-right px-4 py-4 hidden lg:table-cell" style={TH_STYLE}>P&L $</th>
                     <th className="text-right px-4 py-4 cursor-pointer select-none" style={TH_STYLE} onClick={() => handleHoldingSort('weight')}>
-                      <span className="inline-flex items-center justify-end">Weight <SortCaret active={holdingSort.col === 'weight'} dir={holdingSort.dir} /></span>
+                      <span className="inline-flex items-center justify-end">משקל <SortCaret active={holdingSort.col === 'weight'} dir={holdingSort.dir} /></span>
                     </th>
                     <th className="text-right px-4 py-4 cursor-pointer select-none hidden lg:table-cell" style={TH_STYLE} onClick={() => handleHoldingSort('conviction')}>
-                      <span className="inline-flex items-center justify-end">Conv <SortCaret active={holdingSort.col === 'conviction'} dir={holdingSort.dir} /></span>
+                      <span className="inline-flex items-center justify-end">אמון <SortCaret active={holdingSort.col === 'conviction'} dir={holdingSort.dir} /></span>
                     </th>
-                    <th className="text-left px-4 py-4 hidden xl:table-cell" style={TH_STYLE}>Thesis</th>
+                    <th className="text-left px-4 py-4 hidden xl:table-cell" style={TH_STYLE}>תזה</th>
                     <th className="w-10" />
                   </tr>
                 </thead>
@@ -472,9 +472,9 @@ export default function Dashboard() {
                     const dailyDollar = h.changeAmount != null ? h.changeAmount * h.shares : null
                     const targetPct = h.target_allocation_pct ?? h.max_allocation_pct
                     const maxPct = h.max_allocation_pct
-                    const barFill = maxPct && h.weight > maxPct ? '#ff4d4d'
-                      : targetPct && h.weight > targetPct * 0.85 ? '#f5a623'
-                      : '#00dc82'
+                    const barFill = maxPct && h.weight > maxPct ? '#FF5A5A'
+                      : targetPct && h.weight > targetPct * 0.85 ? '#F5A623'
+                      : '#00DC82'
                     const barWidth = targetPct ? Math.min(100, (h.weight / targetPct) * 100) : null
                     return (
                       <tr
@@ -491,17 +491,17 @@ export default function Dashboard() {
                           </div>
                         </td>
                         <td className="px-4 py-4 hidden sm:table-cell max-w-[160px]">
-                          <span className="block truncate" style={{ color: '#8b8b8b', fontSize: 12 }}>{h.company_name}</span>
+                          <span className="block truncate" style={{ color: '#7A7A7A', fontSize: 12 }}>{h.company_name}</span>
                         </td>
                         <td className="px-4 py-4 text-right hidden md:table-cell">
-                          <span style={{ color: '#e0e0e0', fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>
+                          <span style={{ color: '#FFFFFF', fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>
                             {h.currentPrice != null ? fmtAmount(h.currentPrice, 2) : '—'}
                           </span>
                         </td>
                         <td className="px-4 py-4 text-right">
                           {h.changePercent != null ? (
                             <div className="flex flex-col items-end">
-                              <span style={{ color: h.changePercent >= 0 ? '#00dc82' : '#ff4d4d', fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                              <span style={{ color: h.changePercent >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                                 {h.changePercent >= 0 ? '+' : ''}{h.changePercent.toFixed(2)}% {h.changePercent >= 0 ? '↑' : '↓'}
                               </span>
                               {dailyDollar != null && (
@@ -516,7 +516,7 @@ export default function Dashboard() {
                         </td>
                         <td className="px-4 py-4 text-right hidden sm:table-cell">
                           {h.pnlPct != null ? (
-                            <span style={{ color: h.pnlPct >= 0 ? '#00dc82' : '#ff4d4d', fontSize: 13, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+                            <span style={{ color: h.pnlPct >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 13, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
                               {h.pnlPct >= 0 ? '+' : ''}{h.pnlPct.toFixed(2)}%
                             </span>
                           ) : (
@@ -525,7 +525,7 @@ export default function Dashboard() {
                         </td>
                         <td className="px-4 py-4 text-right hidden lg:table-cell">
                           {pnlDollar != null ? (
-                            <span style={{ color: pnlDollar >= 0 ? '#00dc82' : '#ff4d4d', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+                            <span style={{ color: pnlDollar >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
                               {(pnlDollar >= 0 ? '+' : '-') + fmtAmount(Math.abs(pnlDollar), 0)}
                             </span>
                           ) : (
@@ -535,7 +535,7 @@ export default function Dashboard() {
                         <td className="px-4 py-4 text-right">
                           <div className="flex flex-col items-end gap-1">
                             <div className="flex items-baseline gap-1.5">
-                              <span style={{ color: '#e0e0e0', fontSize: 13, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+                              <span style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
                                 {h.weight.toFixed(1)}%
                               </span>
                               {targetPct && (
@@ -561,10 +561,10 @@ export default function Dashboard() {
                           {confirmDeleteId === h.id ? (
                             <span className="flex items-center justify-end gap-2" style={{ fontSize: 11 }}>
                               <button onClick={() => setConfirmDeleteId(null)} style={{ color: '#555' }} className="hover:text-white transition-colors">Cancel</button>
-                              <button onClick={() => handleDelete(h.id)} style={{ color: '#ff4d4d', fontWeight: 500 }} className="hover:opacity-70 transition-opacity">Del</button>
+                              <button onClick={() => handleDelete(h.id)} style={{ color: '#FF5A5A', fontWeight: 500 }} className="hover:opacity-70 transition-opacity">Del</button>
                             </span>
                           ) : (
-                            <button onClick={() => setConfirmDeleteId(h.id)} style={{ color: '#2a2a2a' }} className="flex ml-auto hover:text-[#ff4d4d] transition-colors">
+                            <button onClick={() => setConfirmDeleteId(h.id)} style={{ color: '#2a2a2a' }} className="flex ml-auto hover:text-[#FF5A5A] transition-colors">
                               <XIcon size={13} />
                             </button>
                           )}
@@ -585,16 +585,20 @@ export default function Dashboard() {
         <div>
           <div
             className="flex overflow-x-auto"
-            style={{ borderBottom: '1px solid #232323', marginBottom: 20 }}
+            style={{ borderBottom: '1px solid #1e1e1e', marginBottom: 24 }}
           >
             {TABS.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className="px-4 py-3 text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0"
+                className="whitespace-nowrap flex-shrink-0 transition-colors"
                 style={{
-                  color: activeTab === tab.id ? '#ffffff' : '#444',
-                  borderBottom: `2px solid ${activeTab === tab.id ? '#ffffff' : 'transparent'}`,
+                  padding: '12px 18px',
+                  fontSize: 12,
+                  fontWeight: activeTab === tab.id ? 600 : 500,
+                  letterSpacing: '0.02em',
+                  color: activeTab === tab.id ? '#FFFFFF' : '#4A4A4A',
+                  borderBottom: `2px solid ${activeTab === tab.id ? '#FFFFFF' : 'transparent'}`,
                   marginBottom: -1,
                 }}
               >
@@ -681,7 +685,7 @@ export default function Dashboard() {
                 <label className={labelClass} style={labelStyle}>Thesis</label>
                 <textarea rows={3} value={form.thesis} onChange={e => field('thesis', e.target.value)} placeholder="Why are you investing in this stock?" className={inputClass + ' resize-none'} style={inputStyle} />
               </div>
-              {formError && <p className="text-xs" style={{ color: '#ff4d4d' }}>{formError}</p>}
+              {formError && <p className="text-xs" style={{ color: '#FF5A5A' }}>{formError}</p>}
               <div className="flex justify-end gap-2 pt-1">
                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg text-sm transition-colors hover:text-white" style={{ color: '#555' }}>Cancel</button>
                 <button type="submit" disabled={submitting} className="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50" style={{ background: '#ffffff', color: '#000000' }}>

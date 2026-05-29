@@ -1,5 +1,7 @@
 'use client'
 
+import React from 'react'
+
 interface Props {
   totalValue: number
   cashPct: number
@@ -18,30 +20,13 @@ function signedPct(n: number) {
   return (n >= 0 ? '+' : '') + n.toFixed(2) + '%'
 }
 
-function StatCell({
-  label,
-  value,
-  sub,
-  valueColor = '#ffffff',
-  subColor = '#555',
-}: {
-  label: string
-  value: string
-  sub?: string
-  valueColor?: string
-  subColor?: string
-}) {
-  return (
-    <div className="px-5 py-5">
-      <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#555', marginBottom: 6 }}>
-        {label}
-      </p>
-      <p className="text-base font-semibold tabular-nums" style={{ color: valueColor }}>
-        {value}
-      </p>
-      {sub && <p className="text-xs mt-0.5" style={{ color: subColor }}>{sub}</p>}
-    </div>
-  )
+const LABEL: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: '0.13em',
+  color: '#4A4A4A',
+  marginBottom: 6,
 }
 
 export function PortfolioPulse({
@@ -50,99 +35,121 @@ export function PortfolioPulse({
   loading, hasPrices, formatAmount,
 }: Props) {
   const totalAlerts = criticalAlerts + warningAlerts
-
   const status = criticalAlerts > 0 ? 'off-plan' : warningAlerts > 0 ? 'partial' : 'on-plan'
 
-  const statusCfg = {
-    'on-plan':  { label: 'On Plan',  color: '#00dc82', sub: 'No active issues requiring attention' },
-    'partial':  { label: 'Partial',  color: '#f5a623', sub: `${warningAlerts} signal${warningAlerts !== 1 ? 's' : ''} worth reviewing` },
-    'off-plan': { label: 'Off Plan', color: '#ff4d4d', sub: `${criticalAlerts} critical issue${criticalAlerts !== 1 ? 's' : ''} require action` },
+  const STATUS_CFG = {
+    'on-plan':  { label: 'בתכנית',        color: '#00DC82', sub: 'אין בעיות פעילות הדורשות תשומת לב' },
+    'partial':  { label: 'חלקי',          color: '#F5A623', sub: `${warningAlerts} סיגנל לבדיקה` },
+    'off-plan': { label: 'מחוץ לתכנית',  color: '#FF5A5A', sub: `${criticalAlerts} בעיה קריטית דורשת פעולה` },
   }[status]
 
   const riskLevel = criticalAlerts > 1 ? 'high' : criticalAlerts === 1 ? 'elevated' : warningAlerts >= 3 ? 'moderate' : 'low'
 
   const RISK_CFG: Record<string, { label: string; bg: string; color: string }> = {
-    low:      { label: 'Low Risk',      bg: 'rgba(0,220,130,0.08)',   color: '#00dc82' },
-    moderate: { label: 'Moderate Risk', bg: 'rgba(245,166,35,0.10)',  color: '#f5a623' },
-    elevated: { label: 'Elevated Risk', bg: 'rgba(245,120,35,0.10)',  color: '#f57a23' },
-    high:     { label: 'High Risk',     bg: 'rgba(255,77,77,0.10)',   color: '#ff4d4d' },
+    low:      { label: 'סיכון נמוך',   bg: 'rgba(0,220,130,0.08)',  color: '#00DC82' },
+    moderate: { label: 'סיכון בינוני', bg: 'rgba(245,166,35,0.10)', color: '#F5A623' },
+    elevated: { label: 'סיכון מוגבר', bg: 'rgba(245,120,35,0.10)', color: '#F57A23' },
+    high:     { label: 'סיכון גבוה',   bg: 'rgba(255,90,90,0.12)',  color: '#FF5A5A' },
   }
   const riskCfg = RISK_CFG[riskLevel]
 
-  const cashHigh = maxCashPct != null && cashPct > maxCashPct
-  const cashLow  = minCashPct != null && cashPct < minCashPct
-  const cashSub     = cashHigh ? 'Above target' : cashLow ? 'Below minimum' : 'In range'
-  const cashSubColor = cashHigh || cashLow ? '#f5a623' : '#00dc82'
-  const cashValueColor = cashHigh || cashLow ? '#f5a623' : '#ffffff'
+  const cashHigh     = maxCashPct != null && cashPct > maxCashPct
+  const cashLow      = minCashPct != null && cashPct < minCashPct
+  const cashSub      = cashHigh ? 'מעל היעד' : cashLow ? 'מתחת למינימום' : 'בטווח'
+  const cashSubColor = cashHigh || cashLow ? '#F5A623' : '#00DC82'
+  const cashValColor = cashHigh || cashLow ? '#F5A623' : '#FFFFFF'
 
   const hasDayPnL = hasPrices && todayPnL !== 0
-  const pnlValueColor = hasDayPnL ? (todayPnL >= 0 ? '#00dc82' : '#ff4d4d') : '#ffffff'
-  const pnlSubColor   = todayPnL >= 0 ? '#00dc82' : '#ff4d4d'
+  const pnlColor  = hasDayPnL ? (todayPnL >= 0 ? '#00DC82' : '#FF5A5A') : '#FFFFFF'
 
-  const alertSub = criticalAlerts > 0 ? `${criticalAlerts} critical` : totalAlerts > 0 ? `${totalAlerts} active` : 'All clear'
-  const alertSubColor = criticalAlerts > 0 ? '#ff4d4d' : totalAlerts > 0 ? '#f5a623' : '#00dc82'
+  const alertSub      = criticalAlerts > 0 ? `${criticalAlerts} קריטי` : totalAlerts > 0 ? `${totalAlerts} פעיל` : 'הכל תקין'
+  const alertSubColor = criticalAlerts > 0 ? '#FF5A5A' : totalAlerts > 0 ? '#F5A623' : '#00DC82'
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: '#111111', border: '1px solid #232323' }}>
-      {/* Hero */}
-      <div className="px-7 pt-8 pb-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#555', marginBottom: 12 }}>
-              Portfolio Status
-            </p>
-            <p className="text-4xl font-bold tracking-tight leading-none" style={{ color: statusCfg.color }}>
-              {statusCfg.label}
-            </p>
-            <p className="text-sm mt-2.5" style={{ color: '#666' }}>
-              {statusCfg.sub}
-            </p>
-          </div>
-          <div className="shrink-0 text-right">
-            <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#555', marginBottom: 12 }}>
-              Risk
-            </p>
-            <span
-              className="inline-flex px-3 py-1.5 rounded-xl text-xs font-semibold"
-              style={{ background: riskCfg.bg, color: riskCfg.color }}
-            >
-              {riskCfg.label}
-            </span>
-          </div>
+    <div className="rounded-2xl overflow-hidden" style={{ background: '#111111', border: '1px solid #242424' }}>
+
+      {/* Hero — portfolio value is the star */}
+      <div className="px-7 pt-8 pb-7">
+        <p style={LABEL}>מצב תיק</p>
+
+        {/* Primary number + daily P&L */}
+        <div className="flex items-end gap-8 flex-wrap" style={{ marginBottom: 20 }}>
+          <p style={{
+            fontSize: 44,
+            fontWeight: 700,
+            letterSpacing: '-0.03em',
+            color: '#FFFFFF',
+            lineHeight: 1,
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            {loading ? '—' : formatAmount(totalValue)}
+          </p>
+
+          {hasDayPnL ? (
+            <div style={{ paddingBottom: 7 }}>
+              <div className="flex items-baseline gap-2">
+                <span style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em', color: pnlColor, fontVariantNumeric: 'tabular-nums' }}>
+                  {todayPnL >= 0 ? '+' : ''}{formatAmount(todayPnL)}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 500, color: pnlColor, fontVariantNumeric: 'tabular-nums' }}>
+                  {signedPct(todayPnLPct)}
+                </span>
+              </div>
+              <p style={{ fontSize: 10, color: '#4A4A4A', marginTop: 4, letterSpacing: '0.08em', textTransform: 'uppercase' }}>היום</p>
+            </div>
+          ) : !hasPrices ? (
+            <div style={{ paddingBottom: 10 }}>
+              <p style={{ fontSize: 12, color: '#4A4A4A' }}>מחירים בטעינה…</p>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Status + Risk row */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em', color: STATUS_CFG.color }}>
+            {STATUS_CFG.label}
+          </span>
+          <span style={{ display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: '#333', flexShrink: 0 }} />
+          <span style={{ background: riskCfg.bg, color: riskCfg.color, fontSize: 11, padding: '2px 9px', borderRadius: 5, fontWeight: 600, letterSpacing: '0.01em' }}>
+            {riskCfg.label}
+          </span>
+          <span style={{ fontSize: 12, color: '#7A7A7A' }}>{STATUS_CFG.sub}</span>
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4" style={{ borderTop: '1px solid #1e1e1e' }}>
-        {(['Portfolio', 'Today', 'Cash', 'Signals'] as const).map((label, i) => {
-          if (label === 'Portfolio') return (
-            <div key={label} className="px-5 py-5" style={{ borderRight: '1px solid #1e1e1e' }}>
-              <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#555', marginBottom: 6 }}>Portfolio</p>
-              <p className="text-base font-semibold tabular-nums text-white">{loading ? '—' : formatAmount(totalValue)}</p>
-            </div>
-          )
-          if (label === 'Today') return (
-            <div key={label} className="px-5 py-5" style={{ borderRight: '1px solid #1e1e1e' }}>
-              <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#555', marginBottom: 6 }}>Today</p>
-              <p className="text-base font-semibold tabular-nums" style={{ color: pnlValueColor }}>{hasDayPnL ? formatAmount(todayPnL) : '—'}</p>
-              <p className="text-xs mt-0.5" style={{ color: hasDayPnL ? pnlSubColor : '#555' }}>{hasDayPnL ? signedPct(todayPnLPct) : 'Prices loading'}</p>
-            </div>
-          )
-          if (label === 'Cash') return (
-            <div key={label} className="px-5 py-5" style={{ borderRight: '1px solid #1e1e1e' }}>
-              <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#555', marginBottom: 6 }}>Cash</p>
-              <p className="text-base font-semibold tabular-nums" style={{ color: cashValueColor }}>{`${cashPct.toFixed(1)}%`}</p>
-              <p className="text-xs mt-0.5" style={{ color: cashSubColor }}>{cashSub}</p>
-            </div>
-          )
-          return (
-            <div key={label} className="px-5 py-5">
-              <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#555', marginBottom: 6 }}>Signals</p>
-              <p className="text-base font-semibold tabular-nums text-white">{String(totalAlerts)}</p>
-              <p className="text-xs mt-0.5" style={{ color: alertSubColor }}>{alertSub}</p>
-            </div>
-          )
-        })}
+      {/* Stats strip — 3 cells, no duplicate portfolio value */}
+      <div className="grid grid-cols-3" style={{ borderTop: '1px solid #1a1a1a' }}>
+        <div className="px-5 py-4" style={{ borderRight: '1px solid #1a1a1a' }}>
+          <p style={LABEL}>מזומן</p>
+          <p style={{ fontSize: 16, fontWeight: 600, color: cashValColor, fontVariantNumeric: 'tabular-nums' }}>
+            {cashPct.toFixed(1)}%
+          </p>
+          <p style={{ fontSize: 11, color: cashSubColor, marginTop: 3 }}>{cashSub}</p>
+        </div>
+
+        <div className="px-5 py-4" style={{ borderRight: '1px solid #1a1a1a' }}>
+          <p style={LABEL}>סיגנלים</p>
+          <p style={{ fontSize: 16, fontWeight: 600, color: '#FFFFFF', fontVariantNumeric: 'tabular-nums' }}>
+            {totalAlerts}
+          </p>
+          <p style={{ fontSize: 11, color: alertSubColor, marginTop: 3 }}>{alertSub}</p>
+        </div>
+
+        <div className="px-5 py-4">
+          <p style={LABEL}>רמת סיכון</p>
+          <span style={{
+            background: riskCfg.bg,
+            color: riskCfg.color,
+            fontSize: 12,
+            padding: '3px 10px',
+            borderRadius: 5,
+            fontWeight: 600,
+            display: 'inline-block',
+            marginTop: 2,
+          }}>
+            {riskCfg.label}
+          </span>
+        </div>
       </div>
     </div>
   )
