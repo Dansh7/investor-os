@@ -291,29 +291,29 @@ function AttentionCard({ item, isLast }: { item: AttentionItem; isLast?: boolean
 export function AttentionQueue({ alerts, newsItems }: Props) {
   const [showAll, setShowAll] = useState(false)
   const items = buildItems(alerts, newsItems)
-  const visibleItems = showAll ? items : items.slice(0, 5)
-  const hasMore = items.length > 5
+  const MAX = 5
+  const visibleItems = showAll ? items : items.slice(0, MAX)
+  const hasMore = items.length > MAX
 
   const criticalCount = items.filter(i => i.priority === 'critical').length
   const highCount     = items.filter(i => i.priority === 'high').length
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: '#111111', border: '1px solid #242424' }}>
-      <div
-        className="flex items-center justify-between"
-        style={{ padding: '14px 20px', borderBottom: '1px solid #242424' }}
-      >
-        <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#4A4A4A' }}>
+    <div style={{ background: '#111111', border: '1px solid #1a1a1a', borderRadius: 16, overflow: 'hidden' }}>
+
+      {/* Header */}
+      <div style={{ padding: '16px 28px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#5A5A5A' }}>
           מה דורש תשומת לב
-        </p>
-        <div className="flex items-center gap-2">
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {criticalCount > 0 && (
-            <span style={{ background: 'rgba(255,90,90,0.12)', color: '#FF5A5A', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4 }}>
+            <span style={{ background: 'rgba(255,90,90,0.12)', color: '#FF5A5A', fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 5 }}>
               {criticalCount} קריטי
             </span>
           )}
           {highCount > 0 && (
-            <span style={{ background: 'rgba(245,166,35,0.12)', color: '#F5A623', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4 }}>
+            <span style={{ background: 'rgba(245,166,35,0.12)', color: '#F5A623', fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 5 }}>
               {highCount} לבדיקה
             </span>
           )}
@@ -324,35 +324,40 @@ export function AttentionQueue({ alerts, newsItems }: Props) {
       </div>
 
       {items.length === 0 ? (
-        <div style={{ padding: '40px 24px', textAlign: 'center' }}>
+        <div style={{ padding: '52px 28px', textAlign: 'center' }}>
           <div style={{
-            width: 32, height: 32, borderRadius: '50%',
-            background: 'rgba(0,220,130,0.08)',
+            width: 36, height: 36, borderRadius: '50%',
+            background: 'rgba(0,220,130,0.07)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 12px',
+            margin: '0 auto 14px',
           }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00DC82" strokeWidth="2.5" strokeLinecap="round">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00DC82" strokeWidth="2" strokeLinecap="round">
               <path d="M20 6L9 17l-5-5" />
             </svg>
           </div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF', marginBottom: 4 }}>אין סיגנלים פעילים</p>
-          <p style={{ fontSize: 12, color: '#4A4A4A' }}>התיק פועל כצפוי</p>
+          <p style={{ fontSize: 14, fontWeight: 600, color: '#FFFFFF', marginBottom: 5 }}>אין סיגנלים פעילים</p>
+          <p style={{ fontSize: 13, color: '#5A5A5A' }}>התיק פועל כצפוי</p>
         </div>
       ) : (
-        <div>
+        <>
           {visibleItems.map((item, idx) => (
             <AttentionCard key={item.id} item={item} isLast={!hasMore && idx === visibleItems.length - 1} />
           ))}
           {hasMore && (
             <button
               onClick={() => setShowAll(s => !s)}
-              className="w-full transition-colors hover:text-white"
-              style={{ padding: '12px 20px', fontSize: 12, fontWeight: 500, color: '#4A4A4A', borderTop: '1px solid #1a1a1a', textAlign: 'center' }}
+              style={{
+                width: '100%', padding: '14px 28px', fontSize: 12, fontWeight: 500,
+                color: '#5A5A5A', borderTop: '1px solid #1a1a1a', textAlign: 'center',
+                cursor: 'pointer', transition: 'color 0.12s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#FFFFFF')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#5A5A5A')}
             >
-              {showAll ? 'הצג פחות' : `עוד ${items.length - 5} פריטים →`}
+              {showAll ? 'הצג פחות' : `עוד ${items.length - MAX} התראות`}
             </button>
           )}
-        </div>
+        </>
       )}
     </div>
   )

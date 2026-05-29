@@ -112,7 +112,7 @@ const THESIS_DOT_COLOR: Record<string, string> = {
   broken:   '#FF5A5A',
 }
 
-const TH_STYLE = { color: '#4A4A4A', fontSize: 10, fontWeight: 700 as const, letterSpacing: '0.10em', textTransform: 'uppercase' as const }
+const TH_STYLE = { color: '#5A5A5A', fontSize: 10, fontWeight: 700 as const, letterSpacing: '0.12em', textTransform: 'uppercase' as const }
 
 function ConvictionDots({ score }: { score: number | null | undefined }) {
   if (score == null) return <span style={{ color: '#333', fontSize: 12 }}>—</span>
@@ -403,10 +403,13 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* ── Main content ── */}
-      <div className="max-w-[1280px] mx-auto px-4 sm:px-8 py-8 space-y-6">
+      {/* ── Intelligence Strip — full width, above content ── */}
+      <MacroStrip vix={vixValue} />
 
-        {/* 1. Portfolio Pulse — hero */}
+      {/* ── Main content ── */}
+      <div className="max-w-[1320px] mx-auto px-6 sm:px-10 py-8" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+        {/* 1. Portfolio Hero */}
         <PortfolioPulse
           totalValue={total}
           cashPct={cashPct}
@@ -421,16 +424,10 @@ export default function Dashboard() {
           formatAmount={fmtAmount}
         />
 
-        {/* 2. Market Pulse strip */}
-        <MacroStrip vix={vixValue} />
-
-        {/* 3. Holdings + Critical Today — two columns on desktop */}
-        <div className="grid grid-cols-1 xl:grid-cols-[3fr_2fr] gap-6">
-
-          {/* Holdings */}
+        {/* 2. Holdings — full width primary workspace */}
           <div style={{ background: '#111111', border: '1px solid #1a1a1a', borderRadius: 16, overflow: 'hidden' }}>
-          <div style={{ borderBottom: '1px solid #1a1a1a', padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#4A4A4A' }}>אחזקות</span>
+          <div style={{ borderBottom: '1px solid #1a1a1a', padding: '16px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#5A5A5A' }}>אחזקות</span>
             <button
               onClick={() => { setForm(EMPTY_FORM); setFormError(null); setShowModal(true) }}
               style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#4A4A4A', fontSize: 12, cursor: 'pointer', transition: 'color 0.12s' }}
@@ -451,24 +448,24 @@ export default function Dashboard() {
             <div className="overflow-x-auto">
               <table className="w-full" style={{ borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ background: '#0d0d0d', borderBottom: '1px solid #1e1e1e' }}>
-                    <th className="text-left px-5 py-4" style={TH_STYLE}>נייר</th>
-                    <th className="text-left px-4 py-4 hidden sm:table-cell" style={TH_STYLE}>חברה</th>
-                    <th className="text-right px-4 py-4 hidden md:table-cell" style={TH_STYLE}>מחיר</th>
-                    <th className="text-right px-4 py-4 cursor-pointer select-none" style={TH_STYLE} onClick={() => handleHoldingSort('day')}>
-                      <span className="inline-flex items-center justify-end">היום % <SortCaret active={holdingSort.col === 'day'} dir={holdingSort.dir} /></span>
+                  <tr style={{ background: '#0C0C0C', borderBottom: '1px solid #1a1a1a' }}>
+                    <th className="text-left px-7 py-4" style={TH_STYLE}>נייר</th>
+                    <th className="text-left px-5 py-4 hidden sm:table-cell" style={TH_STYLE}>חברה</th>
+                    <th className="text-right px-5 py-4 hidden md:table-cell" style={TH_STYLE}>מחיר</th>
+                    <th className="text-right px-5 py-4 cursor-pointer select-none" style={TH_STYLE} onClick={() => handleHoldingSort('day')}>
+                      <span className="inline-flex items-center justify-end">היום <SortCaret active={holdingSort.col === 'day'} dir={holdingSort.dir} /></span>
                     </th>
-                    <th className="text-right px-4 py-4 cursor-pointer select-none hidden sm:table-cell" style={TH_STYLE} onClick={() => handleHoldingSort('pnl')}>
-                      <span className="inline-flex items-center justify-end">P&L % <SortCaret active={holdingSort.col === 'pnl'} dir={holdingSort.dir} /></span>
+                    <th className="text-right px-5 py-4 cursor-pointer select-none hidden sm:table-cell" style={TH_STYLE} onClick={() => handleHoldingSort('pnl')}>
+                      <span className="inline-flex items-center justify-end">P&L <SortCaret active={holdingSort.col === 'pnl'} dir={holdingSort.dir} /></span>
                     </th>
-                    <th className="text-right px-4 py-4 hidden lg:table-cell" style={TH_STYLE}>P&L $</th>
-                    <th className="text-right px-4 py-4 cursor-pointer select-none" style={TH_STYLE} onClick={() => handleHoldingSort('weight')}>
+                    <th className="text-right px-5 py-4 hidden lg:table-cell" style={TH_STYLE}>רווח $</th>
+                    <th className="text-right px-5 py-4 cursor-pointer select-none" style={TH_STYLE} onClick={() => handleHoldingSort('weight')}>
                       <span className="inline-flex items-center justify-end">משקל <SortCaret active={holdingSort.col === 'weight'} dir={holdingSort.dir} /></span>
                     </th>
-                    <th className="text-right px-4 py-4 cursor-pointer select-none hidden lg:table-cell" style={TH_STYLE} onClick={() => handleHoldingSort('conviction')}>
+                    <th className="text-right px-5 py-4 cursor-pointer select-none hidden lg:table-cell" style={TH_STYLE} onClick={() => handleHoldingSort('conviction')}>
                       <span className="inline-flex items-center justify-end">אמון <SortCaret active={holdingSort.col === 'conviction'} dir={holdingSort.dir} /></span>
                     </th>
-                    <th className="text-left px-4 py-4 hidden xl:table-cell" style={TH_STYLE}>תזה</th>
+                    <th className="text-left px-5 py-4 hidden xl:table-cell" style={TH_STYLE}>תזה</th>
                     <th className="w-10" />
                   </tr>
                 </thead>
@@ -486,92 +483,96 @@ export default function Dashboard() {
                     return (
                       <tr
                         key={h.id}
-                        className="transition-colors duration-150 hover:bg-[#171717]"
-                        style={{ borderBottom: idx < tableRows.length - 1 ? '1px solid #1a1a1a' : 'none' }}
+                        style={{
+                          borderBottom: idx < tableRows.length - 1 ? '1px solid #141414' : 'none',
+                          transition: 'background 0.1s',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#131313')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-2.5">
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: dotColor, flexShrink: 0, display: 'inline-block' }} />
-                            <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, color: '#ffffff', letterSpacing: '-0.01em' }}>
+                        <td className="px-7 py-5">
+                          <div className="flex items-center gap-3">
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: dotColor, flexShrink: 0, display: 'inline-block' }} />
+                            <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, color: '#FFFFFF', letterSpacing: '0.02em' }}>
                               {h.ticker}
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-4 hidden sm:table-cell max-w-[160px]">
-                          <span className="block truncate" style={{ color: '#7A7A7A', fontSize: 12 }}>{h.company_name}</span>
+                        <td className="px-5 py-5 hidden sm:table-cell max-w-[180px]">
+                          <span className="block truncate" style={{ color: '#9A9A9A', fontSize: 13 }}>{h.company_name}</span>
                         </td>
-                        <td className="px-4 py-4 text-right hidden md:table-cell">
-                          <span style={{ color: '#FFFFFF', fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>
+                        <td className="px-5 py-5 text-right hidden md:table-cell">
+                          <span style={{ color: '#E0E0E0', fontSize: 14, fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>
                             {h.currentPrice != null ? fmtAmount(h.currentPrice, 2) : '—'}
                           </span>
                         </td>
-                        <td className="px-4 py-4 text-right">
+                        <td className="px-5 py-5 text-right">
                           {h.changePercent != null ? (
                             <div className="flex flex-col items-end">
-                              <span style={{ color: h.changePercent >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                                {h.changePercent >= 0 ? '+' : ''}{h.changePercent.toFixed(2)}% {h.changePercent >= 0 ? '↑' : '↓'}
+                              <span style={{ color: h.changePercent >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 14, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                                {h.changePercent >= 0 ? '+' : ''}{h.changePercent.toFixed(2)}%
                               </span>
                               {dailyDollar != null && (
-                                <span style={{ color: dailyDollar >= 0 ? '#007a4a' : '#8b2020', fontSize: 10, fontVariantNumeric: 'tabular-nums', marginTop: 1 }}>
+                                <span style={{ color: dailyDollar >= 0 ? '#00804D' : '#8B2020', fontSize: 11, fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>
                                   {dailyDollar >= 0 ? '+' : ''}{fmtAmount(Math.abs(dailyDollar), 0)}
                                 </span>
                               )}
                             </div>
                           ) : (
-                            <span style={{ color: '#3a3a3a', fontSize: 13 }}>—</span>
+                            <span style={{ color: '#2E2E2E', fontSize: 14 }}>—</span>
                           )}
                         </td>
-                        <td className="px-4 py-4 text-right hidden sm:table-cell">
+                        <td className="px-5 py-5 text-right hidden sm:table-cell">
                           {h.pnlPct != null ? (
-                            <span style={{ color: h.pnlPct >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 13, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+                            <span style={{ color: h.pnlPct >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 14, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                               {h.pnlPct >= 0 ? '+' : ''}{h.pnlPct.toFixed(2)}%
                             </span>
                           ) : (
-                            <span style={{ color: '#3a3a3a', fontSize: 13 }}>—</span>
+                            <span style={{ color: '#2E2E2E', fontSize: 14 }}>—</span>
                           )}
                         </td>
-                        <td className="px-4 py-4 text-right hidden lg:table-cell">
+                        <td className="px-5 py-5 text-right hidden lg:table-cell">
                           {pnlDollar != null ? (
-                            <span style={{ color: pnlDollar >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+                            <span style={{ color: pnlDollar >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 13, fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>
                               {(pnlDollar >= 0 ? '+' : '-') + fmtAmount(Math.abs(pnlDollar), 0)}
                             </span>
                           ) : (
-                            <span style={{ color: '#3a3a3a', fontSize: 12 }}>—</span>
+                            <span style={{ color: '#2E2E2E', fontSize: 13 }}>—</span>
                           )}
                         </td>
-                        <td className="px-4 py-4 text-right">
-                          <div className="flex flex-col items-end gap-1">
+                        <td className="px-5 py-5 text-right">
+                          <div className="flex flex-col items-end gap-1.5">
                             <div className="flex items-baseline gap-1.5">
-                              <span style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+                              <span style={{ color: '#E0E0E0', fontSize: 14, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                                 {h.weight.toFixed(1)}%
                               </span>
                               {targetPct && (
-                                <span style={{ color: '#555', fontSize: 11 }}>/ {targetPct}%</span>
+                                <span style={{ color: '#444', fontSize: 11 }}>/ {targetPct}%</span>
                               )}
                             </div>
                             {barWidth != null && (
-                              <div style={{ width: 48, height: 2, background: '#1e1e1e', borderRadius: 1, overflow: 'hidden' }}>
+                              <div style={{ width: 52, height: 2, background: '#1e1e1e', borderRadius: 1, overflow: 'hidden' }}>
                                 <div style={{ width: `${barWidth}%`, height: '100%', backgroundColor: barFill, borderRadius: 1 }} />
                               </div>
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-4 hidden lg:table-cell">
+                        <td className="px-5 py-5 hidden lg:table-cell">
                           <div className="flex justify-end">
                             <ConvictionDots score={h.conviction_score} />
                           </div>
                         </td>
-                        <td className="px-4 py-4 hidden xl:table-cell">
+                        <td className="px-5 py-5 hidden xl:table-cell">
                           <ThesisPill status={h.thesis_status} />
                         </td>
-                        <td className="px-3 py-4">
+                        <td className="px-4 py-5">
                           {confirmDeleteId === h.id ? (
                             <span className="flex items-center justify-end gap-2" style={{ fontSize: 11 }}>
-                              <button onClick={() => setConfirmDeleteId(null)} style={{ color: '#555' }} className="hover:text-white transition-colors">Cancel</button>
-                              <button onClick={() => handleDelete(h.id)} style={{ color: '#FF5A5A', fontWeight: 500 }} className="hover:opacity-70 transition-opacity">Del</button>
+                              <button onClick={() => setConfirmDeleteId(null)} style={{ color: '#555' }} className="hover:text-white transition-colors">ביטול</button>
+                              <button onClick={() => handleDelete(h.id)} style={{ color: '#FF5A5A', fontWeight: 500 }} className="hover:opacity-70 transition-opacity">מחק</button>
                             </span>
                           ) : (
-                            <button onClick={() => setConfirmDeleteId(h.id)} style={{ color: '#2a2a2a' }} className="flex ml-auto hover:text-[#FF5A5A] transition-colors">
+                            <button onClick={() => setConfirmDeleteId(h.id)} style={{ color: '#252525' }} className="flex ml-auto hover:text-[#FF5A5A] transition-colors">
                               <XIcon size={13} />
                             </button>
                           )}
@@ -585,12 +586,10 @@ export default function Dashboard() {
           )}
           </div>
 
-          {/* Critical Today */}
-          <AttentionQueue alerts={alerts} newsItems={newsItems} />
+        {/* 3. Critical Today — full width feed below holdings */}
+        <AttentionQueue alerts={alerts} newsItems={newsItems} />
 
-        </div>{/* end 2-col grid */}
-
-        {/* 4. Tab navigation */}
+        {/* 4. Tabs */}
         <div>
           <div
             className="flex overflow-x-auto"

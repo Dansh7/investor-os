@@ -12,6 +12,8 @@ interface MacroState {
   loaded: boolean
 }
 
+// ─── Label / color helpers ────────────────────────────────────────────────────
+
 function fgLabel(v: number) {
   if (v <= 25) return 'פחד קיצוני'
   if (v <= 45) return 'פחד'
@@ -36,30 +38,75 @@ function vixLabel(v: number) {
 
 function vixColor(v: number) {
   if (v < 15) return '#00DC82'
-  if (v < 20) return '#7A7A7A'
+  if (v < 20) return '#8A8A8A'
   if (v < 30) return '#F5A623'
   return '#FF5A5A'
 }
 
 function deriveMood(fg: number | null, vix: number | null): { label: string; color: string } {
-  const fgScore = fg != null
-    ? (fg > 60 ? 2 : fg > 45 ? 1 : fg > 30 ? 0 : fg > 20 ? -1 : -2)
-    : 0
-  const vixScore = vix != null
-    ? (vix < 13 ? 2 : vix < 18 ? 1 : vix < 24 ? 0 : vix < 32 ? -1 : -2)
-    : 0
-  const combined = fg != null && vix != null
-    ? (fgScore + vixScore) / 2
-    : fg != null ? fgScore : vixScore
-  if (combined >= 1)  return { label: 'רגוע',       color: '#00DC82' }
-  if (combined >= 0)  return { label: 'ניטרלי',     color: '#7A7A7A' }
-  if (combined >= -1) return { label: 'מתוח',       color: '#F5A623' }
-  return               { label: 'סיכון גבוה', color: '#FF5A5A' }
+  const fgScore = fg != null ? (fg > 60 ? 2 : fg > 45 ? 1 : fg > 30 ? 0 : fg > 20 ? -1 : -2) : 0
+  const vxScore = vix != null ? (vix < 13 ? 2 : vix < 18 ? 1 : vix < 24 ? 0 : vix < 32 ? -1 : -2) : 0
+  const score = fg != null && vix != null ? (fgScore + vxScore) / 2 : fg != null ? fgScore : vxScore
+  if (score >= 1)  return { label: 'רגוע',       color: '#00DC82' }
+  if (score >= 0)  return { label: 'זהיר',       color: '#8A8A8A' }
+  if (score >= -1) return { label: 'לחוץ',       color: '#F5A623' }
+  return            { label: 'סיכון גבוה', color: '#FF5A5A' }
 }
 
-const DIVIDER = (
-  <div style={{ width: 1, height: 28, background: '#1e1e1e', flexShrink: 0, margin: '0 24px' }} />
+// ─── Arc gauge SVG ────────────────────────────────────────────────────────────
+// Semicircle, center at (30, 30), radius 26, viewBox 0 0 60 34.
+// value 0 → left end (4,30), value 100 → right end (56,30).
+
+function ArcGauge({ value, color }: { value: number; color: string }) {
+  const cx = 30, cy = 30, r = 26, nLen = 19
+
+  const pt = (v: number) => {
+    const a = Math.PI * (1 - v / 100)
+    return { x: +(cx + r * Math.cos(a)).toFixed(2), y: +(cy - r * Math.sin(a)).toFixed(2) }
+  }
+
+  const seg = (v1: number, v2: number) => {
+    const s = pt(v1), e = pt(v2)
+    return `M ${s.x} ${s.y} A ${r} ${r} 0 0 1 ${e.x} ${e.y}`
+  }
+
+  const na = Math.PI * (1 - Math.max(0, Math.min(100, value)) / 100)
+  const tip = { x: +(cx + nLen * Math.cos(na)).toFixed(2), y: +(cy - nLen * Math.sin(na)).toFixed(2) }
+
+  return (
+    <svg
+      width="60" height="34"
+      viewBox="0 0 60 34"
+      style={{ display: 'block', flexShrink: 0 }}
+    >
+      {/* Track */}
+      <path
+        d={`M ${pt(0).x} ${pt(0).y} A ${r} ${r} 0 0 1 ${pt(100).x} ${pt(100).y}`}
+        fill="none" stroke="#1C1C1C" strokeWidth="5" strokeLinecap="round"
+      />
+      {/* Zone fills */}
+      <path d={seg(0, 25)}   fill="none" stroke="#FF5A5A" strokeWidth="5" opacity="0.55" />
+      <path d={seg(25, 45)}  fill="none" stroke="#F5A623" strokeWidth="5" opacity="0.55" />
+      <path d={seg(45, 55)}  fill="none" stroke="#555555" strokeWidth="5" opacity="0.40" />
+      <path d={seg(55, 75)}  fill="none" stroke="#00DC82" strokeWidth="5" opacity="0.55" />
+      <path d={seg(75, 100)} fill="none" stroke="#00DC82" strokeWidth="5" opacity="0.55" />
+      {/* Needle */}
+      <line
+        x1={cx} y1={cy} x2={tip.x} y2={tip.y}
+        stroke={color} strokeWidth="1.5" strokeLinecap="round"
+      />
+      <circle cx={cx} cy={cy} r="2.5" fill={color} />
+    </svg>
+  )
+}
+
+// ─── Divider ──────────────────────────────────────────────────────────────────
+
+const DIV = (
+  <div style={{ width: 1, height: 22, background: '#1A1A1A', margin: '0 28px', flexShrink: 0 }} />
 )
+
+// ─── MacroStrip ───────────────────────────────────────────────────────────────
 
 export function MacroStrip({ vix }: Props) {
   const [macro, setMacro] = useState<MacroState>({ fearGreed: null, loaded: false })
@@ -77,98 +124,106 @@ export function MacroStrip({ vix }: Props) {
   return (
     <div
       style={{
-        background: '#0D0D0D',
-        border: '1px solid #1a1a1a',
-        borderRadius: 14,
-        padding: '13px 24px',
+        background: '#0A0A0A',
+        borderBottom: '1px solid #161616',
         display: 'flex',
         alignItems: 'center',
-        overflowX: 'auto',
+        height: 52,
+        padding: '0 40px',
         gap: 0,
+        overflowX: 'auto',
+        flexShrink: 0,
       }}
     >
-      {/* Section label */}
+      {/* Identity */}
       <span style={{
-        fontSize: 9,
-        fontWeight: 700,
-        textTransform: 'uppercase',
-        letterSpacing: '0.14em',
-        color: '#2E2E2E',
-        marginRight: 24,
-        flexShrink: 0,
-        whiteSpace: 'nowrap',
+        fontSize: 9, fontWeight: 800, textTransform: 'uppercase',
+        letterSpacing: '0.20em', color: '#2A2A2A',
+        marginRight: 28, flexShrink: 0, whiteSpace: 'nowrap',
       }}>
         PULSE
       </span>
 
       {/* Fear & Greed */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4A4A4A', whiteSpace: 'nowrap' }}>
-          F&G
+        <span style={{
+          fontSize: 9, fontWeight: 600, textTransform: 'uppercase',
+          letterSpacing: '0.10em', color: '#3A3A3A', whiteSpace: 'nowrap',
+        }}>
+          פחד ותאוות בצע
         </span>
+
         {!macro.loaded ? (
-          <span style={{ fontSize: 20, color: '#2A2A2A', fontWeight: 800 }}>—</span>
+          <span style={{ fontSize: 20, color: '#252525', fontWeight: 700 }}>—</span>
         ) : fg == null ? (
-          <span style={{ fontSize: 13, color: '#4A4A4A' }}>לא זמין</span>
+          <span style={{ fontSize: 12, color: '#3A3A3A' }}>N/A</span>
         ) : (
           <>
-            <span style={{
-              fontSize: 28, fontWeight: 800, color: fgColor(fg),
-              fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.03em', lineHeight: 1,
-            }}>
-              {fg}
-            </span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: fgColor(fg), whiteSpace: 'nowrap' }}>
-              {fgLabel(fg)}
-            </span>
+            <ArcGauge value={fg} color={fgColor(fg)} />
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1, gap: 3 }}>
+              <span style={{
+                fontSize: 22, fontWeight: 800, color: fgColor(fg),
+                fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.03em',
+              }}>
+                {fg}
+              </span>
+              <span style={{ fontSize: 10, fontWeight: 600, color: fgColor(fg), whiteSpace: 'nowrap' }}>
+                {fgLabel(fg)}
+              </span>
+            </div>
           </>
         )}
       </div>
 
-      {DIVIDER}
+      {DIV}
 
       {/* VIX */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4A4A4A' }}>
+        <span style={{
+          fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
+          letterSpacing: '0.10em', color: '#3A3A3A',
+        }}>
           VIX
         </span>
         {vix == null ? (
-          <span style={{ fontSize: 20, color: '#2A2A2A', fontWeight: 800 }}>—</span>
+          <span style={{ fontSize: 20, color: '#252525', fontWeight: 700 }}>—</span>
         ) : (
-          <>
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1, gap: 3 }}>
             <span style={{
-              fontSize: 28, fontWeight: 800, color: vixColor(vix),
-              fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.03em', lineHeight: 1,
+              fontSize: 22, fontWeight: 800, color: vixColor(vix),
+              fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.03em',
             }}>
               {vix.toFixed(1)}
             </span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: vixColor(vix), whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: vixColor(vix), whiteSpace: 'nowrap' }}>
               {vixLabel(vix)}
             </span>
-          </>
+          </div>
         )}
       </div>
 
-      {DIVIDER}
+      {DIV}
 
       {/* Market Mood */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4A4A4A', whiteSpace: 'nowrap' }}>
+        <span style={{
+          fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
+          letterSpacing: '0.10em', color: '#3A3A3A', whiteSpace: 'nowrap',
+        }}>
           מצב שוק
         </span>
         <span style={{
-          fontSize: 17, fontWeight: 700, color: mood.color,
-          letterSpacing: '-0.01em', whiteSpace: 'nowrap',
+          fontSize: 16, fontWeight: 800, color: mood.color,
+          letterSpacing: '-0.02em', whiteSpace: 'nowrap',
         }}>
           {mood.label}
         </span>
       </div>
 
-      {/* Source note */}
-      <div style={{ marginLeft: 'auto', paddingLeft: 24, flexShrink: 0 }}>
-        <span style={{ fontSize: 9, color: '#252525', whiteSpace: 'nowrap' }}>
-          {fg != null && vix != null ? 'F&G + VIX' : vix != null ? 'VIX בלבד' : 'ממתין'}
-          {fg != null ? ' · alternative.me' : ''}
+      {/* Attribution — far right */}
+      <div style={{ marginLeft: 'auto', paddingLeft: 32, flexShrink: 0 }}>
+        <span style={{ fontSize: 9, color: '#1E1E1E', letterSpacing: '0.04em' }}>
+          alternative.me
         </span>
       </div>
     </div>
