@@ -231,56 +231,60 @@ function AttentionCard({ item, isLast }: { item: AttentionItem; isLast?: boolean
     : null
 
   const heSummary = hebrewSummary(item.category, item.ticker)
+  const dotColor  = SEV_BORDER[item.priority]
 
   return (
-    <button
+    <div
       onClick={() => setExpanded(e => !e)}
-      className="w-full text-left transition-colors"
       style={{
-        padding: '16px 20px',
-        borderLeft: `3px solid ${SEV_BORDER[item.priority]}`,
+        padding: '20px 24px',
         borderBottom: isLast ? 'none' : '1px solid #1a1a1a',
         background: 'transparent',
+        cursor: 'pointer',
+        transition: 'background 0.12s',
       }}
-      onMouseEnter={e => (e.currentTarget.style.background = '#171717')}
+      onMouseEnter={e => (e.currentTarget.style.background = '#141414')}
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
-      <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
-        <div className="flex items-center gap-2.5">
-          <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#FFFFFF', letterSpacing: '-0.01em' }}>
+      {/* Row 1: dot + ticker + category + badge */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+          <span style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 700, color: '#FFFFFF', letterSpacing: '-0.01em' }}>
             {item.ticker}
           </span>
-          <span style={{ background: SEV_BADGE[item.priority].bg, color: SEV_BADGE[item.priority].color, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, letterSpacing: '0.04em' }}>
+          <span style={{ fontSize: 12, color: '#7A7A7A', fontWeight: 400 }}>
+            {heCategory(item.category)}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {item.portfolioImpact != null && <ImpactLevel value={item.portfolioImpact} />}
+          <span style={{ background: SEV_BADGE[item.priority].bg, color: SEV_BADGE[item.priority].color, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, letterSpacing: '0.04em', flexShrink: 0 }}>
             {SEV_LABEL[item.priority]}
           </span>
         </div>
-        {item.portfolioImpact != null && <ImpactLevel value={item.portfolioImpact} />}
       </div>
 
-      {/* Hebrew category title */}
-      <p style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF', marginBottom: 5 }}>
-        {heCategory(item.category)}
+      {/* Hebrew summary — primary, large */}
+      <p style={{ fontSize: 14, fontWeight: 500, color: '#E8E8E8', lineHeight: 1.6 }}>
+        {heSummary}
       </p>
 
-      {/* Hebrew executive summary — primary visible text */}
-      <p style={{ fontSize: 12, color: '#B3B3B3', lineHeight: 1.55 }}>{heSummary}</p>
-
       {expanded && (
-        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #1e1e1e' }}>
-          {/* Original source text */}
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #1e1e1e' }}>
           {item.whyItMatters && (
-            <p style={{ fontSize: 11, color: '#4A4A4A', lineHeight: 1.5, marginBottom: 8, fontStyle: 'italic' }}>
+            <p style={{ fontSize: 11, color: '#4A4A4A', lineHeight: 1.55, marginBottom: 10, fontStyle: 'italic' }}>
               {item.whyItMatters}
             </p>
           )}
-          <div className="flex items-center gap-4" style={{ fontSize: 11, color: '#4A4A4A' }}>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 11, color: '#4A4A4A' }}>
             {date && <span>{date}</span>}
             {item.urgency != null && <span>דחיפות {item.urgency.toFixed(0)}/10</span>}
             {item.portfolioImpact != null && <span>השפעה {item.portfolioImpact.toFixed(0)}/10</span>}
           </div>
         </div>
       )}
-    </button>
+    </div>
   )
 }
 

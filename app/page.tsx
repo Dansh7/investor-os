@@ -404,9 +404,9 @@ export default function Dashboard() {
       </header>
 
       {/* ── Main content ── */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-8 py-8 space-y-6">
 
-        {/* 1. Daily Portfolio Pulse */}
+        {/* 1. Portfolio Pulse — hero */}
         <PortfolioPulse
           totalValue={total}
           cashPct={cashPct}
@@ -421,18 +421,23 @@ export default function Dashboard() {
           formatAmount={fmtAmount}
         />
 
-        {/* 2. Macro Strip */}
+        {/* 2. Market Pulse strip */}
         <MacroStrip vix={vixValue} />
 
-        {/* 3. Holdings Table */}
-        <div style={{ background: '#111111', border: '1px solid #242424', borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ borderBottom: '1px solid #242424' }} className="px-5 py-3.5 flex items-center justify-between">
-            <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#4A4A4A' }}>אחזקות</span>
+        {/* 3. Holdings + Critical Today — two columns on desktop */}
+        <div className="grid grid-cols-1 xl:grid-cols-[3fr_2fr] gap-6">
+
+          {/* Holdings */}
+          <div style={{ background: '#111111', border: '1px solid #1a1a1a', borderRadius: 16, overflow: 'hidden' }}>
+          <div style={{ borderBottom: '1px solid #1a1a1a', padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#4A4A4A' }}>אחזקות</span>
             <button
               onClick={() => { setForm(EMPTY_FORM); setFormError(null); setShowModal(true) }}
-              className="flex items-center gap-1.5 text-[#666666] hover:text-white transition-colors text-xs"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#4A4A4A', fontSize: 12, cursor: 'pointer', transition: 'color 0.12s' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#FFFFFF')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#4A4A4A')}
             >
-              <PlusIcon /> Add
+              <PlusIcon /> הוסף
             </button>
           </div>
 
@@ -578,12 +583,14 @@ export default function Dashboard() {
               </table>
             </div>
           )}
-        </div>
+          </div>
 
-        {/* 4. Critical Today */}
-        <AttentionQueue alerts={alerts} newsItems={newsItems} />
+          {/* Critical Today */}
+          <AttentionQueue alerts={alerts} newsItems={newsItems} />
 
-        {/* 5. Tab navigation */}
+        </div>{/* end 2-col grid */}
+
+        {/* 4. Tab navigation */}
         <div>
           <div
             className="flex overflow-x-auto"

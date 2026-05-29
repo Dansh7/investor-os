@@ -19,6 +19,7 @@ export interface NewsItem {
   scoring_reason?: string | null
   sentiment?: string | null
   summary?: string | null
+  tags?: string[] | null
 }
 
 interface Props {
@@ -29,122 +30,177 @@ const BUCKET_ORDER = ['immediate', 'daily', 'weekly'] as const
 type Bucket = typeof BUCKET_ORDER[number]
 
 const BUCKET_META: Record<Bucket, { label: string; dotColor: string; badgeBg: string; badgeColor: string }> = {
-  immediate: { label: 'Immediate', dotColor: '#ff4d4d', badgeBg: 'rgba(255,77,77,0.10)',  badgeColor: '#ff4d4d' },
-  daily:     { label: 'Daily',     dotColor: '#f5a623', badgeBg: 'rgba(245,166,35,0.10)', badgeColor: '#f5a623' },
-  weekly:    { label: 'Weekly',    dotColor: '#60a5fa', badgeBg: 'rgba(96,165,250,0.10)', badgeColor: '#60a5fa' },
+  immediate: { label: 'מיידי',  dotColor: '#FF5A5A', badgeBg: 'rgba(255,90,90,0.10)',  badgeColor: '#FF5A5A' },
+  daily:     { label: 'יומי',   dotColor: '#F5A623', badgeBg: 'rgba(245,166,35,0.10)', badgeColor: '#F5A623' },
+  weekly:    { label: 'שבועי',  dotColor: '#60a5fa', badgeBg: 'rgba(96,165,250,0.10)', badgeColor: '#60a5fa' },
 }
 
-const THESIS_BADGE: Record<string, { bg: string; color: string }> = {
-  breaking:   { bg: 'rgba(255,77,77,0.10)',  color: '#ff4d4d' },
-  weakening:  { bg: 'rgba(245,166,35,0.10)', color: '#f5a623' },
-  supporting: { bg: 'rgba(0,220,130,0.08)',  color: '#00dc82' },
+const THESIS_BADGE: Record<string, { label: string; bg: string; color: string }> = {
+  breaking:   { label: 'שוברת תזה',   bg: 'rgba(255,90,90,0.10)',  color: '#FF5A5A' },
+  weakening:  { label: 'מחלישה',      bg: 'rgba(245,166,35,0.10)', color: '#F5A623' },
+  supporting: { label: 'מחזקת',       bg: 'rgba(0,220,130,0.08)',  color: '#00DC82' },
 }
 
+const SENTIMENT_HE: Record<string, string> = {
+  positive: 'חיובי',
+  negative: 'שלילי',
+  neutral:  'ניטרלי',
+  mixed:    'מעורב',
+}
 const SENTIMENT_COLOR: Record<string, string> = {
-  positive: '#00dc82',
-  negative: '#ff4d4d',
+  positive: '#00DC82',
+  negative: '#FF5A5A',
   neutral:  '#555',
-  mixed:    '#f5a623',
+  mixed:    '#F5A623',
 }
 
-function ImpactBar({ value, max = 10 }: { value: number; max?: number }) {
-  const pct = Math.min(100, (value / max) * 100)
-  const color = value >= 8 ? '#ff4d4d' : value >= 6 ? '#f5a623' : value >= 4 ? '#60a5fa' : '#333'
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className="w-12 h-1 rounded-full overflow-hidden" style={{ background: '#222' }}>
-        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
-      </div>
-      <span className="tabular-nums text-xs" style={{ color: '#9a9a9a' }}>{value.toFixed(1)}</span>
-    </div>
-  )
+function newsHebrewHeadline(item: NewsItem): string {
+  const t = item.ticker ?? ''
+  const prefix = t ? `${t} — ` : ''
+  const tags = item.tags ?? []
+
+  if (item.thesis_impact === 'breaking')  return `${prefix}אירוע שוברת תזה`
+  if (item.thesis_impact === 'weakening') return `${prefix}אות להחלשת תזה`
+  if (item.thesis_impact === 'supporting') return `${prefix}חיזוק תזת ההשקעה`
+
+  if (tags.includes('earnings') && tags.includes('guidance')) return `${prefix}רווחים והנחיה קדימה`
+  if (tags.includes('earnings'))   return `${prefix}עדכון רווחים`
+  if (tags.includes('m&a'))        return `${prefix}פעילות מיזוגים ורכישות`
+  if (tags.includes('management')) return `${prefix}שינוי הנהלה`
+  if (tags.includes('regulatory')) return `${prefix}אירוע רגולטורי`
+  if (tags.includes('dilution'))   return `${prefix}סיכון דילול`
+  if (tags.includes('guidance'))   return `${prefix}הנחיה עדכנית לשוק`
+  if (tags.includes('debt'))       return `${prefix}פעילות מימון`
+  if (tags.includes('dividend'))   return `${prefix}עדכון דיבידנד`
+
+  if (item.action_type === 'immediate') return `${prefix}דורש בחינה מיידית`
+  if (item.action_type === 'daily')     return `${prefix}מעקב שוטף`
+  return `${prefix}עדכון שוק`
+}
+
+function newsHebrewContext(item: NewsItem): string {
+  const parts: string[] = []
+
+  if (item.thesis_impact === 'breaking')   parts.push('האירוע עלול לפרוץ את הנחות הבסיס של ההשקעה — נדרשת בחינה מחדש.')
+  else if (item.thesis_impact === 'weakening')  parts.push('הכתבה מחלישה את ההנחות הבסיסיות. יש לעקוב מקרוב.')
+  else if (item.thesis_impact === 'supporting') parts.push('הכתבה תומכת בתזת ההשקעה הקיימת.')
+
+  if (item.portfolio_impact_score != null) {
+    if (item.portfolio_impact_score >= 8) parts.push('השפעה גבוהה צפויה על התיק.')
+    else if (item.portfolio_impact_score >= 6) parts.push('השפעה בינונית צפויה על התיק.')
+    else if (item.portfolio_impact_score >= 4) parts.push('השפעה נמוכה על התיק.')
+  }
+
+  if (item.urgency_score != null && item.urgency_score >= 7) parts.push('רמת דחיפות גבוהה.')
+
+  if (item.sentiment === 'negative') parts.push('סנטימנט שוק שלילי.')
+  else if (item.sentiment === 'positive') parts.push('סנטימנט שוק חיובי.')
+
+  return parts.join(' ') || 'ראה פרטים במקור.'
 }
 
 function NewsRow({ item, isLast }: { item: NewsItem; isLast?: boolean }) {
   const [expanded, setExpanded] = useState(false)
-  const hasThesis = item.thesis_impact && item.thesis_impact !== 'none'
-  const thesisBadge = item.thesis_impact ? THESIS_BADGE[item.thesis_impact] : null
+
+  const thesisBadge = item.thesis_impact && item.thesis_impact !== 'none'
+    ? THESIS_BADGE[item.thesis_impact]
+    : null
+  const sentimentColor = SENTIMENT_COLOR[item.sentiment ?? ''] ?? '#555'
+
+  const heHeadline = newsHebrewHeadline(item)
+  const heContext  = newsHebrewContext(item)
 
   return (
     <div
-      className="px-4 py-3 cursor-pointer transition-colors hover:bg-[#171717]"
-      style={{ borderBottom: isLast ? 'none' : '1px solid #1a1a1a' }}
+      style={{
+        padding: '18px 24px',
+        borderBottom: isLast ? 'none' : '1px solid #1a1a1a',
+        cursor: 'pointer',
+        transition: 'background 0.12s',
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = '#141414')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
       onClick={() => setExpanded(e => !e)}
     >
-      <div className="flex flex-wrap items-center gap-1.5 mb-1">
+      {/* Row 1: ticker + badges */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
         {item.ticker && (
-          <span className="font-mono text-xs font-bold text-white tracking-tight">{item.ticker}</span>
+          <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#FFFFFF', letterSpacing: '-0.01em' }}>
+            {item.ticker}
+          </span>
         )}
         {item.is_verified ? (
-          <span className="text-xs font-semibold px-1.5 py-0.5 rounded" style={{ background: 'rgba(0,220,130,0.08)', color: '#00dc82' }}>
-            ✓ Verified
+          <span style={{ background: 'rgba(0,220,130,0.08)', color: '#00DC82', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4 }}>
+            מאומת
           </span>
         ) : (
-          <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(100,100,100,0.08)', color: '#555' }}>
-            Unverified
+          <span style={{ background: 'rgba(100,100,100,0.08)', color: '#3A3A3A', fontSize: 10, padding: '2px 7px', borderRadius: 4 }}>
+            לא מאומת
           </span>
         )}
-        {hasThesis && thesisBadge && (
-          <span className="text-xs font-semibold px-1.5 py-0.5 rounded" style={thesisBadge}>
-            thesis {item.thesis_impact}
+        {thesisBadge && (
+          <span style={{ background: thesisBadge.bg, color: thesisBadge.color, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4 }}>
+            {thesisBadge.label}
           </span>
         )}
         {item.sentiment && item.sentiment !== 'neutral' && (
-          <span className="text-xs font-medium" style={{ color: SENTIMENT_COLOR[item.sentiment] ?? '#555' }}>
-            {item.sentiment}
+          <span style={{ fontSize: 11, fontWeight: 500, color: sentimentColor }}>
+            {SENTIMENT_HE[item.sentiment] ?? item.sentiment}
           </span>
         )}
       </div>
 
-      <p className="text-sm leading-snug" style={{ color: '#e0e0e0' }}>
-        {item.headline.slice(0, 120)}{item.headline.length > 120 ? '…' : ''}
+      {/* Row 2: Hebrew headline — primary */}
+      <p style={{ fontSize: 14, fontWeight: 600, color: '#F0F0F0', lineHeight: 1.45, marginBottom: 5 }}>
+        {heHeadline}
       </p>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5">
+      {/* Row 3: Hebrew context */}
+      <p style={{ fontSize: 12, color: '#7A7A7A', lineHeight: 1.55, marginBottom: 8 }}>
+        {heContext}
+      </p>
+
+      {/* Row 4: scores + source */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         {item.portfolio_impact_score != null && (
-          <div className="flex items-center gap-1">
-            <span className="text-xs font-medium" style={{ color: '#666' }}>Portfolio impact</span>
-            <ImpactBar value={item.portfolio_impact_score} />
-          </div>
-        )}
-        {item.importance_score != null && (
-          <div className="flex items-center gap-1">
-            <span className="text-xs" style={{ color: '#555' }}>Importance</span>
-            <span className="text-xs tabular-nums" style={{ color: '#9a9a9a' }}>{item.importance_score.toFixed(1)}</span>
-          </div>
+          <span style={{ fontSize: 11, color: '#4A4A4A' }}>
+            השפעה: <span style={{ color: '#7A7A7A', fontWeight: 600 }}>{item.portfolio_impact_score.toFixed(0)}/10</span>
+          </span>
         )}
         {item.urgency_score != null && (
-          <div className="flex items-center gap-1">
-            <span className="text-xs" style={{ color: '#555' }}>Urgency</span>
-            <span className="text-xs tabular-nums" style={{ color: '#9a9a9a' }}>{item.urgency_score.toFixed(1)}</span>
-          </div>
+          <span style={{ fontSize: 11, color: '#4A4A4A' }}>
+            דחיפות: <span style={{ color: '#7A7A7A', fontWeight: 600 }}>{item.urgency_score.toFixed(0)}/10</span>
+          </span>
         )}
-        {item.source && <span className="text-xs" style={{ color: '#555' }}>{item.source}</span>}
+        {item.source && <span style={{ fontSize: 11, color: '#3A3A3A' }}>{item.source}</span>}
         {item.published_at && (
-          <span className="text-xs" style={{ color: '#555' }}>
-            {new Date(item.published_at).toLocaleDateString()}
+          <span style={{ fontSize: 11, color: '#3A3A3A' }}>
+            {new Date(item.published_at).toLocaleDateString('he-IL', { month: 'short', day: 'numeric' })}
           </span>
         )}
       </div>
 
+      {/* Expanded: English headline + summary */}
       {expanded && (
-        <div className="mt-2.5 space-y-1.5 pt-2.5" style={{ borderTop: '1px solid #1e1e1e' }}>
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #1e1e1e' }}>
+          <p style={{ fontSize: 11, color: '#4A4A4A', lineHeight: 1.55, marginBottom: 6, fontStyle: 'italic' }}>
+            {item.headline}
+          </p>
           {item.summary && (
-            <p className="text-xs leading-relaxed" style={{ color: '#c8c8c8' }}>{item.summary}</p>
+            <p style={{ fontSize: 12, color: '#B3B3B3', lineHeight: 1.6, marginBottom: 8 }}>{item.summary}</p>
           )}
           {item.scoring_reason && (
-            <p className="text-xs italic leading-relaxed" style={{ color: '#555' }}>{item.scoring_reason}</p>
+            <p style={{ fontSize: 11, color: '#4A4A4A', lineHeight: 1.5, fontStyle: 'italic' }}>{item.scoring_reason}</p>
           )}
           {item.source_url && (
             <a
               href={item.source_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block text-xs hover:underline"
-              style={{ color: '#60a5fa' }}
+              style={{ display: 'inline-block', marginTop: 8, fontSize: 11, color: '#5A8FFF' }}
               onClick={e => e.stopPropagation()}
             >
-              View source →
+              ← מקור
             </a>
           )}
         </div>
@@ -169,17 +225,21 @@ export function NewsIntelligence({ items }: Props) {
   const displayItems = byBucket[effectiveTab]
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ background: '#111111', border: '1px solid #232323' }}>
-      <div className="px-5 py-3.5 flex items-center justify-between" style={{ borderBottom: '1px solid #232323' }}>
-        <h2 className="text-sm font-semibold text-white">News Intelligence</h2>
-        <span className="text-xs" style={{ color: '#555' }}>{items.length} scored</span>
+    <div style={{ background: '#111111', border: '1px solid #1a1a1a', borderRadius: 16, overflow: 'hidden' }}>
+      <div style={{ padding: '14px 24px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h2 style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+          מודיעין שוק
+        </h2>
+        <span style={{ fontSize: 11, color: '#4A4A4A' }}>{items.length} כתבות מדורגות</span>
       </div>
 
       {items.length === 0 ? (
-        <p className="px-5 py-8 text-center text-sm" style={{ color: '#555' }}>No news scored yet — run the news pipeline</p>
+        <p style={{ padding: '40px 24px', textAlign: 'center', fontSize: 13, color: '#3A3A3A' }}>
+          אין כתבות מדורגות — הרץ את צינור הסיקור
+        </p>
       ) : (
         <>
-          <div className="flex" style={{ borderBottom: '1px solid #232323' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid #1a1a1a' }}>
             {BUCKET_ORDER.map(bucket => {
               const meta = BUCKET_META[bucket]
               const count = byBucket[bucket].length
@@ -188,16 +248,26 @@ export function NewsIntelligence({ items }: Props) {
                 <button
                   key={bucket}
                   onClick={() => setActiveTab(bucket)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors"
                   style={{
-                    color: isActive ? '#ffffff' : '#555',
-                    borderBottom: `2px solid ${isActive ? '#ffffff' : 'transparent'}`,
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    padding: '10px 12px',
+                    fontSize: 12,
+                    fontWeight: isActive ? 600 : 400,
+                    color: isActive ? '#FFFFFF' : '#4A4A4A',
+                    borderBottom: `2px solid ${isActive ? '#FFFFFF' : 'transparent'}`,
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    transition: 'color 0.12s',
                   }}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: meta.dotColor }} />
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: meta.dotColor, flexShrink: 0 }} />
                   {meta.label}
                   {count > 0 && (
-                    <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ background: meta.badgeBg, color: meta.badgeColor }}>
+                    <span style={{ background: meta.badgeBg, color: meta.badgeColor, fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10 }}>
                       {count}
                     </span>
                   )}
@@ -207,9 +277,11 @@ export function NewsIntelligence({ items }: Props) {
           </div>
 
           {displayItems.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm" style={{ color: '#555' }}>No {BUCKET_META[effectiveTab].label} items</p>
+            <p style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#3A3A3A' }}>
+              אין פריטים ב{BUCKET_META[effectiveTab].label}
+            </p>
           ) : (
-            <div className="max-h-96 overflow-y-auto">
+            <div style={{ maxHeight: 480, overflowY: 'auto' }}>
               {displayItems.map((item, idx) => (
                 <NewsRow key={item.id} item={item} isLast={idx === displayItems.length - 1} />
               ))}
