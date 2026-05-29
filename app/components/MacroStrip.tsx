@@ -138,8 +138,8 @@ export function MacroStrip({ vix }: Props) {
   return (
     <div
       style={{
-        background: '#0A0A0A',
-        borderBottom: '1px solid #161616',
+        background: '#080808',
+        borderBottom: '1px solid #1C1C1C',
         display: 'flex',
         alignItems: 'center',
         height: 92,

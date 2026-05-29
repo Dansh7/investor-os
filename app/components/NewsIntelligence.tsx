@@ -114,7 +114,7 @@ function NewsRow({ item, isLast }: { item: NewsItem; isLast?: boolean }) {
     <div
       style={{
         padding: '18px 24px',
-        borderBottom: isLast ? 'none' : '1px solid #1a1a1a',
+        borderBottom: isLast ? 'none' : '1px solid #1C1C1C',
         cursor: 'pointer',
         transition: 'background 0.12s',
       }}
@@ -225,12 +225,12 @@ export function NewsIntelligence({ items }: Props) {
   const displayItems = byBucket[effectiveTab]
 
   return (
-    <div style={{ background: '#111111', border: '1px solid #1a1a1a', borderRadius: 16, overflow: 'hidden' }}>
-      <div style={{ padding: '14px 24px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h2 style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+    <div style={{ background: '#0E0E0E', border: '1px solid #1C1C1C', borderRadius: 16, overflow: 'hidden' }}>
+      <div style={{ padding: '20px 24px', borderBottom: '1px solid #1C1C1C', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6A6A6A', letterSpacing: '0.01em' }}>
           מודיעין שוק
         </h2>
-        <span style={{ fontSize: 11, color: '#4A4A4A' }}>{items.length} כתבות מדורגות</span>
+        <span style={{ fontSize: 11, color: '#3A3A3A' }}>{items.length} כתבות</span>
       </div>
 
       {items.length === 0 ? (
@@ -239,7 +239,7 @@ export function NewsIntelligence({ items }: Props) {
         </p>
       ) : (
         <>
-          <div style={{ display: 'flex', borderBottom: '1px solid #1a1a1a' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid #1C1C1C' }}>
             {BUCKET_ORDER.map(bucket => {
               const meta = BUCKET_META[bucket]
               const count = byBucket[bucket].length

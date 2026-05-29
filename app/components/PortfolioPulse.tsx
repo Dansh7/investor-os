@@ -20,6 +20,12 @@ function signedPct(n: number) {
   return (n >= 0 ? '+' : '') + n.toFixed(2) + '%'
 }
 
+function Sep() {
+  return (
+    <div style={{ width: 1, height: 14, background: '#262626', margin: '0 18px', flexShrink: 0 }} />
+  )
+}
+
 export function PortfolioPulse({
   totalValue, cashPct, todayPnL, todayPnLPct,
   criticalAlerts, warningAlerts, minCashPct, maxCashPct,
@@ -37,7 +43,7 @@ export function PortfolioPulse({
   const riskLevel = criticalAlerts > 1 ? 'high' : criticalAlerts === 1 ? 'elevated' : warningAlerts >= 3 ? 'moderate' : 'low'
 
   const RISK_LABEL: Record<string, { label: string; color: string }> = {
-    low:      { label: 'סיכון נמוך',   color: '#00DC82' },
+    low:      { label: 'סיכון נמוך',   color: '#5A5A5A' },
     moderate: { label: 'סיכון בינוני', color: '#F5A623' },
     elevated: { label: 'סיכון מוגבר', color: '#F57A23' },
     high:     { label: 'סיכון גבוה',   color: '#FF5A5A' },
@@ -46,42 +52,39 @@ export function PortfolioPulse({
 
   const cashHigh  = maxCashPct != null && cashPct > maxCashPct
   const cashLow   = minCashPct != null && cashPct < minCashPct
-  const cashColor = cashHigh || cashLow ? '#F5A623' : '#7A7A7A'
+  const cashColor = cashHigh || cashLow ? '#F5A623' : '#5A5A5A'
 
   const hasDayPnL = hasPrices && todayPnL !== 0
-  const pnlColor  = hasDayPnL ? (todayPnL >= 0 ? '#00DC82' : '#FF5A5A') : '#4A4A4A'
+  const pnlColor  = hasDayPnL ? (todayPnL >= 0 ? '#00DC82' : '#FF5A5A') : '#3A3A3A'
 
-  const alertColor = criticalAlerts > 0 ? '#FF5A5A' : totalAlerts > 0 ? '#F5A623' : '#00DC82'
+  const alertColor = criticalAlerts > 0 ? '#FF5A5A' : totalAlerts > 0 ? '#F5A623' : '#5A5A5A'
   const alertText  = criticalAlerts > 0 ? `${criticalAlerts} קריטי`
     : totalAlerts > 0 ? `${totalAlerts} סיגנלים`
     : 'ללא התראות'
 
-  const DOT = (
-    <span style={{ color: '#252525', fontSize: 22, fontWeight: 300, lineHeight: 1, userSelect: 'none' }}>·</span>
-  )
-
   return (
-    <div style={{ background: '#111111', borderRadius: 20, overflow: 'hidden', position: 'relative' }}>
+    <div style={{ background: '#0E0E0E', borderRadius: 16, overflow: 'hidden' }}>
 
-      {/* Status accent line */}
+      {/* Status accent — 3px top line, colour reflects plan status */}
       <div style={{ height: 3, background: STATUS_CFG.color, width: '100%' }} />
 
-      {/* Hero area */}
-      <div style={{ padding: '36px 40px 32px' }}>
+      <div style={{ padding: '40px 48px 36px' }}>
+
+        {/* Label */}
         <p style={{
-          fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-          letterSpacing: '0.16em', color: '#333', marginBottom: 20,
+          fontSize: 11, fontWeight: 500, textTransform: 'uppercase',
+          letterSpacing: '0.16em', color: '#424242', marginBottom: 26,
         }}>
           שווי תיק
         </p>
 
-        {/* Primary hero row: value + daily P&L */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 28, flexWrap: 'wrap', marginBottom: 28 }}>
+        {/* Hero row: portfolio value + today P&L */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 36, flexWrap: 'wrap', marginBottom: 36 }}>
           <p style={{
             fontSize: 72,
             fontWeight: 800,
-            letterSpacing: '-0.04em',
-            color: loading ? '#2A2A2A' : '#FFFFFF',
+            letterSpacing: '-0.05em',
+            color: loading ? '#222' : '#FFFFFF',
             lineHeight: 0.88,
             fontVariantNumeric: 'tabular-nums',
           }}>
@@ -90,46 +93,53 @@ export function PortfolioPulse({
 
           {hasDayPnL ? (
             <div style={{ paddingBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                 <span style={{
-                  fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em',
+                  fontSize: 26, fontWeight: 700, letterSpacing: '-0.03em',
                   color: pnlColor, fontVariantNumeric: 'tabular-nums',
                 }}>
                   {todayPnL >= 0 ? '+' : ''}{formatAmount(todayPnL)}
                 </span>
-                <span style={{ fontSize: 15, fontWeight: 600, color: pnlColor, fontVariantNumeric: 'tabular-nums' }}>
+                <span style={{
+                  fontSize: 15, fontWeight: 600, color: pnlColor,
+                  fontVariantNumeric: 'tabular-nums', opacity: 0.80,
+                }}>
                   {signedPct(todayPnLPct)}
                 </span>
               </div>
-              <p style={{ fontSize: 10, color: '#4A4A4A', marginTop: 5, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              <p style={{
+                fontSize: 11, color: '#424242', marginTop: 7,
+                letterSpacing: '0.12em', textTransform: 'uppercase',
+              }}>
                 היום
               </p>
             </div>
           ) : !hasPrices ? (
             <div style={{ paddingBottom: 12 }}>
-              <p style={{ fontSize: 13, color: '#333' }}>מחירים בטעינה…</p>
+              <p style={{ fontSize: 13, color: '#2A2A2A' }}>מחירים בטעינה…</p>
             </div>
           ) : null}
         </div>
 
-        {/* Status strip */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: STATUS_CFG.color, letterSpacing: '-0.01em' }}>
+        {/* Status strip — vertical-line separators, no dots */}
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', rowGap: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: STATUS_CFG.color, letterSpacing: '-0.01em' }}>
             {STATUS_CFG.label}
           </span>
-          {DOT}
+          <Sep />
           <span style={{ fontSize: 13, fontWeight: 500, color: riskCfg.color }}>
             {riskCfg.label}
           </span>
-          {DOT}
+          <Sep />
           <span style={{ fontSize: 13, fontWeight: 500, color: cashColor }}>
             מזומן {cashPct.toFixed(1)}%
           </span>
-          {DOT}
+          <Sep />
           <span style={{ fontSize: 13, fontWeight: 500, color: alertColor }}>
             {alertText}
           </span>
         </div>
+
       </div>
     </div>
   )

@@ -230,54 +230,60 @@ function AttentionCard({ item, isLast }: { item: AttentionItem; isLast?: boolean
     ? new Date(item.timestamp).toLocaleDateString('he-IL', { month: 'short', day: 'numeric' })
     : null
 
-  const heSummary = hebrewSummary(item.category, item.ticker)
-  const dotColor  = SEV_BORDER[item.priority]
+  const heSummary    = hebrewSummary(item.category, item.ticker)
+  const accentColor  = SEV_BORDER[item.priority]
 
   return (
     <div
       onClick={() => setExpanded(e => !e)}
       style={{
-        padding: '20px 24px',
-        borderBottom: isLast ? 'none' : '1px solid #1a1a1a',
+        padding: '20px 24px 20px 21px',
+        borderBottom: isLast ? 'none' : '1px solid #1C1C1C',
+        borderLeft: `3px solid ${accentColor}`,
         background: 'transparent',
         cursor: 'pointer',
-        transition: 'background 0.12s',
+        transition: 'background 0.15s',
       }}
-      onMouseEnter={e => (e.currentTarget.style.background = '#141414')}
+      onMouseEnter={e => (e.currentTarget.style.background = '#131313')}
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
-      {/* Row 1: dot + ticker + category + badge */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, justifyContent: 'space-between' }}>
+      {/* Row 1: ticker + category + badges */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-          <span style={{ fontFamily: 'monospace', fontSize: 17, fontWeight: 700, color: '#FFFFFF', letterSpacing: '0.02em' }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 16, fontWeight: 700, color: '#FFFFFF', letterSpacing: '0.02em' }}>
             {item.ticker}
           </span>
-          <span style={{ fontSize: 14, color: '#8A8A8A', fontWeight: 500 }}>
+          <span style={{ fontSize: 12, color: '#4A4A4A', fontWeight: 400 }}>
             {heCategory(item.category)}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {item.portfolioImpact != null && <ImpactLevel value={item.portfolioImpact} />}
-          <span style={{ background: SEV_BADGE[item.priority].bg, color: SEV_BADGE[item.priority].color, fontSize: 13, fontWeight: 700, padding: '3px 10px', borderRadius: 5, letterSpacing: '0.02em', flexShrink: 0 }}>
+          <span style={{
+            background: SEV_BADGE[item.priority].bg,
+            color: SEV_BADGE[item.priority].color,
+            fontSize: 11, fontWeight: 600,
+            padding: '2px 9px', borderRadius: 4,
+            flexShrink: 0,
+          }}>
             {SEV_LABEL[item.priority]}
           </span>
         </div>
       </div>
 
-      {/* Hebrew summary — primary */}
-      <p style={{ fontSize: 18, fontWeight: 500, color: '#E8E8E8', lineHeight: 1.65 }}>
+      {/* Hebrew summary — primary content */}
+      <p style={{ fontSize: 17, fontWeight: 500, color: '#DEDEDE', lineHeight: 1.6 }}>
         {heSummary}
       </p>
 
       {expanded && (
-        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #1e1e1e' }}>
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #1C1C1C' }}>
           {item.whyItMatters && (
-            <p style={{ fontSize: 15, color: '#5A5A5A', lineHeight: 1.55, marginBottom: 10, fontStyle: 'italic' }}>
+            <p style={{ fontSize: 13, color: '#4A4A4A', lineHeight: 1.6, marginBottom: 10 }}>
               {item.whyItMatters}
             </p>
           )}
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: '#5A5A5A' }}>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 11, color: '#3A3A3A' }}>
             {date && <span>{date}</span>}
             {item.urgency != null && <span>דחיפות {item.urgency.toFixed(0)}/10</span>}
             {item.portfolioImpact != null && <span>השפעה {item.portfolioImpact.toFixed(0)}/10</span>}
@@ -299,10 +305,10 @@ export function AttentionQueue({ alerts, newsItems }: Props) {
   const highCount     = items.filter(i => i.priority === 'high').length
 
   return (
-    <div style={{ background: '#111111', border: '1px solid #1a1a1a', borderRadius: 16, overflow: 'hidden' }}>
+    <div style={{ background: '#0E0E0E', border: '1px solid #1C1C1C', borderRadius: 16, overflow: 'hidden' }}>
 
       {/* Header */}
-      <div style={{ padding: '16px 28px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ padding: '20px 28px', borderBottom: '1px solid #1C1C1C', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '0.01em', color: '#6A6A6A' }}>
           מה דורש תשומת לב
         </span>
@@ -348,7 +354,7 @@ export function AttentionQueue({ alerts, newsItems }: Props) {
               onClick={() => setShowAll(s => !s)}
               style={{
                 width: '100%', padding: '14px 28px', fontSize: 12, fontWeight: 500,
-                color: '#5A5A5A', borderTop: '1px solid #1a1a1a', textAlign: 'center',
+                color: '#4A4A4A', borderTop: '1px solid #1C1C1C', textAlign: 'center',
                 cursor: 'pointer', transition: 'color 0.12s',
               }}
               onMouseEnter={e => (e.currentTarget.style.color = '#FFFFFF')}

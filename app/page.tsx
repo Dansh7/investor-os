@@ -379,12 +379,12 @@ export default function Dashboard() {
   return (
     <div
       className="min-h-screen antialiased"
-      style={{ background: '#090909', color: '#FFFFFF', fontFamily: 'var(--font-geist-sans), system-ui, sans-serif' }}
+      style={{ background: '#080808', color: '#FFFFFF', fontFamily: 'var(--font-geist-sans), system-ui, sans-serif' }}
     >
       {/* Header */}
       <header
         className="flex items-center justify-between px-5 sm:px-8 py-4"
-        style={{ background: '#111111', borderBottom: '1px solid #1e1e1e' }}
+        style={{ background: '#0E0E0E', borderBottom: '1px solid #1C1C1C' }}
       >
         <div className="flex items-center gap-2.5">
           <span className="text-sm font-semibold tracking-tight text-white">Investor OS</span>
@@ -420,7 +420,7 @@ export default function Dashboard() {
       <MacroStrip vix={vixValue} />
 
       {/* ── Main content ── */}
-      <div className="max-w-[1320px] mx-auto px-6 sm:px-10 py-8" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div className="max-w-[1320px] mx-auto px-6 sm:px-10 py-10" style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
         {/* 1. Portfolio Hero */}
         <PortfolioPulse
@@ -438,8 +438,8 @@ export default function Dashboard() {
         />
 
         {/* 2. Holdings — full width primary workspace */}
-          <div style={{ background: '#111111', border: '1px solid #1a1a1a', borderRadius: 16, overflow: 'hidden' }}>
-          <div style={{ borderBottom: '1px solid #1a1a1a', padding: '16px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ background: '#0E0E0E', border: '1px solid #1C1C1C', borderRadius: 16, overflow: 'hidden' }}>
+          <div style={{ borderBottom: '1px solid #1C1C1C', padding: '20px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '0.01em', color: '#6A6A6A' }}>אחזקות</span>
             <button
               onClick={() => { setForm(EMPTY_FORM); setFormError(null); setShowModal(true) }}
@@ -461,7 +461,7 @@ export default function Dashboard() {
             <div className="overflow-x-auto">
               <table className="w-full" style={{ borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ background: '#0C0C0C', borderBottom: '1px solid #1a1a1a' }}>
+                  <tr style={{ background: '#0A0A0A', borderBottom: '1px solid #1C1C1C' }}>
                     <th className="text-left px-7 py-4" style={TH_STYLE}>נייר</th>
                     <th className="text-left px-5 py-4 hidden sm:table-cell" style={TH_STYLE}>חברה</th>
                     <th className="text-right px-5 py-4 hidden md:table-cell" style={TH_STYLE}>מחיר</th>
@@ -499,10 +499,10 @@ export default function Dashboard() {
                       <tr
                         key={h.id}
                         style={{
-                          borderBottom: idx < tableRows.length - 1 ? '1px solid #141414' : 'none',
+                          borderBottom: idx < tableRows.length - 1 ? '1px solid #181818' : 'none',
                           transition: 'background 0.1s',
                         }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#131313')}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#111111')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
                         <td className="px-7 py-5">
@@ -628,7 +628,7 @@ export default function Dashboard() {
         <div>
           <div
             className="flex overflow-x-auto"
-            style={{ borderBottom: '1px solid #1e1e1e', marginBottom: 24 }}
+            style={{ borderBottom: '1px solid #1C1C1C', marginBottom: 28 }}
           >
             {TABS.map(tab => (
               <button
@@ -636,12 +636,13 @@ export default function Dashboard() {
                 onClick={() => setActiveTab(tab.id)}
                 className="whitespace-nowrap flex-shrink-0 transition-colors"
                 style={{
-                  padding: '12px 20px',
+                  padding: '13px 22px',
                   fontSize: 14,
                   fontWeight: activeTab === tab.id ? 600 : 400,
-                  letterSpacing: '0.02em',
-                  color: activeTab === tab.id ? '#FFFFFF' : '#4A4A4A',
-                  borderBottom: `2px solid ${activeTab === tab.id ? '#FFFFFF' : 'transparent'}`,
+                  letterSpacing: '-0.01em',
+                  color: activeTab === tab.id ? '#F0F0F0' : '#404040',
+                  borderBottom: `2px solid ${activeTab === tab.id ? '#E0E0E0' : 'transparent'}`,
+                  background: activeTab === tab.id ? 'rgba(255,255,255,0.04)' : 'transparent',
                   marginBottom: -1,
                 }}
               >
