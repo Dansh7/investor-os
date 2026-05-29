@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 
 // Zone components (homepage)
 import { PortfolioPulse } from './components/PortfolioPulse'
+import { MacroStrip } from './components/MacroStrip'
 import { AttentionQueue, type AlertRow, type NewsItem } from './components/AttentionQueue'
 import { UpcomingTimeline, type TimelineEvent } from './components/UpcomingTimeline'
 
@@ -191,10 +192,9 @@ export default function Dashboard() {
   }, [])
 
   const fetchPrices = useCallback(async (tickers: string[]) => {
-    if (!tickers.length) return
     setPricesLoading(true)
     try {
-      const all = [...new Set([...tickers, 'ILS=X'])]
+      const all = [...new Set([...tickers, 'ILS=X', '^VIX'])]
       const res = await fetch(`/api/prices?tickers=${all.join(',')}`)
       if (!res.ok) throw new Error('failed')
       const data: (PriceData & { ticker: string })[] = await res.json()
@@ -244,15 +244,13 @@ export default function Dashboard() {
 
   const tickerKey = holdings.map(h => h.ticker).sort().join(',')
   useEffect(() => {
-    if (!tickerKey) return
-    fetchPrices(tickerKey.split(','))
+    fetchPrices(tickerKey ? tickerKey.split(',') : [])
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tickerKey, fetchPrices])
 
   useEffect(() => {
     const interval = setInterval(() => {
-      const tickers = holdingsRef.current.map(h => h.ticker)
-      if (tickers.length > 0) fetchPrices(tickers)
+      fetchPrices(holdingsRef.current.map(h => h.ticker))
     }, REFRESH_MS)
     return () => clearInterval(interval)
   }, [fetchPrices])
@@ -264,7 +262,8 @@ export default function Dashboard() {
     return () => window.removeEventListener('keydown', handler)
   }, [showModal])
 
-  const ilsRate = prices['ILS=X']?.current_price ?? null
+  const ilsRate  = prices['ILS=X']?.current_price ?? null
+  const vixValue = prices['^VIX']?.current_price ?? null
 
   function fmtAmount(usdAmount: number, decimals = 0) {
     if (currency === 'ILS' && ilsRate)
@@ -422,7 +421,10 @@ export default function Dashboard() {
           formatAmount={fmtAmount}
         />
 
-        {/* 2. Holdings Table */}
+        {/* 2. Macro Strip */}
+        <MacroStrip vix={vixValue} />
+
+        {/* 3. Holdings Table */}
         <div style={{ background: '#111111', border: '1px solid #242424', borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ borderBottom: '1px solid #242424' }} className="px-5 py-3.5 flex items-center justify-between">
             <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#4A4A4A' }}>אחזקות</span>
@@ -578,10 +580,10 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* 3. Critical Today */}
+        {/* 4. Critical Today */}
         <AttentionQueue alerts={alerts} newsItems={newsItems} />
 
-        {/* 4. Tab navigation */}
+        {/* 5. Tab navigation */}
         <div>
           <div
             className="flex overflow-x-auto"

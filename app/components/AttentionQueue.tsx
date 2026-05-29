@@ -75,32 +75,60 @@ const SEV_LABEL: Record<string, string> = {
   medium:   'מעקב',
 }
 
-// Human-language category → Hebrew translation
+// Category → Hebrew title
 const CATEGORY_HE: Record<string, string> = {
   'Thesis trigger':       'פריצת תזה',
   'Thesis concern':       'חשש בתזה',
-  'Earnings activity':    'פעילות רווחים',
+  'Earnings activity':    'עדכון רווחים',
   'Earnings & guidance':  'רווחים והנחיה',
   'Financing activity':   'פעילות מימון',
   'Management change':    'שינוי הנהלה',
-  'Regulatory activity':  'פעילות רגולטורית',
+  'Regulatory activity':  'אירוע רגולטורי',
   'Regulatory event':     'אירוע רגולטורי',
   'Acquisition activity': 'פעילות רכישה',
   'Market guidance':      'הנחיית שוק',
   'Dilution risk':        'סיכון דילול',
-  'Dividend event':       'אירוע דיבידנד',
+  'Dividend event':       'עדכון דיבידנד',
   'Delisting notice':     'הודעת מחיקה',
   'Activity detected':    'פעילות זוהתה',
   'Auditor change':       'שינוי רואה חשבון',
   'Critical alert':       'התראה קריטית',
-  'Warning alert':        'אזהרה',
-  'No thesis':            'ללא תזה',
+  'Warning alert':        'אזהרה פעילה',
+  'No thesis':            'חסרת תזה',
   'Low conviction':       'אמון נמוך',
   'Overweight':           'חשיפת יתר',
 }
 
 function heCategory(cat: string): string {
   return CATEGORY_HE[cat] ?? cat
+}
+
+// Category → short Hebrew executive summary (replaces raw English text in default view)
+function hebrewSummary(category: string, ticker: string): string {
+  const t = ticker
+  const templates: Record<string, string> = {
+    'Thesis trigger':       `${t} עברה אירוע שמאתגר את תזת ההשקעה. נדרשת בחינה מחדש.`,
+    'Thesis concern':       `${t} מצביעה על חולשה בתזת ההשקעה. יש לעקוב מקרוב.`,
+    'Earnings activity':    `${t} פרסמה עדכון רווחים. בחן את הנתונים מול הציפיות.`,
+    'Earnings & guidance':  `${t} פרסמה רווחים והנחיה קדימה. בחן פער מול הצפי.`,
+    'Financing activity':   `${t} ביצעה פעילות מימון. בדוק השפעה על מבנה ההון.`,
+    'Management change':    `${t} ביצעה שינוי הנהלה. בחן השפעה על הכיוון האסטרטגי.`,
+    'Regulatory activity':  `${t} מול אירוע רגולטורי. עלול להשפיע על מהלך הפעילות.`,
+    'Regulatory event':     `${t} מול אירוע רגולטורי. עלול להשפיע על מהלך הפעילות.`,
+    'Acquisition activity': `${t} מעורבת בפעילות רכישה. עשויה להשפיע על שווי ומיקוד.`,
+    'Market guidance':      `${t} עדכנה הנחיה לשוק. בחן פער מול הציפיות הקיימות.`,
+    'Dilution risk':        `${t} — סיכון לדילול בעלי מניות. בדוק נפח ההנפקה הפוטנציאלי.`,
+    'Dividend event':       `${t} עם עדכון בדיבידנד. בחן השלכות על תזרים ואסטרטגיה.`,
+    'Delisting notice':     `${t} עלולה להיות מוסרת מהבורסה. סיכון גבוה — בחן מיידית.`,
+    'Auditor change':       `${t} החליפה רואה חשבון. בחן את הנסיבות — ייתכן סימן אזהרה.`,
+    'Activity detected':    `${t} — זוהתה פעילות שדורשת בדיקה נוספת.`,
+    'Critical alert':       `${t} — התראה קריטית. נדרשת תשומת לב מיידית.`,
+    'Warning alert':        `${t} — אזהרה פעילה הדורשת בחינה.`,
+    'No thesis':            `${t} מוחזקת ללא תזה מתועדת. חשיפה ללא הגדרת מסגרת.`,
+    'Low conviction':       `${t} — אמון נמוך עם משקל משמעותי. שקול בחינה מחדש.`,
+    'Overweight':           `${t} חורגת מהגבול המקסימלי שהוגדר. שקול איזון מחדש.`,
+  }
+  return templates[category] ?? `${t} — פעילות זוהתה הדורשת בחינה.`
 }
 
 function firstSentence(text: string, maxLen = 110): string {
@@ -202,6 +230,8 @@ function AttentionCard({ item, isLast }: { item: AttentionItem; isLast?: boolean
     ? new Date(item.timestamp).toLocaleDateString('he-IL', { month: 'short', day: 'numeric' })
     : null
 
+  const heSummary = hebrewSummary(item.category, item.ticker)
+
   return (
     <button
       onClick={() => setExpanded(e => !e)}
@@ -220,24 +250,34 @@ function AttentionCard({ item, isLast }: { item: AttentionItem; isLast?: boolean
           <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#FFFFFF', letterSpacing: '-0.01em' }}>
             {item.ticker}
           </span>
-          <span style={{ ...SEV_BADGE[item.priority], fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, letterSpacing: '0.04em' }}>
+          <span style={{ background: SEV_BADGE[item.priority].bg, color: SEV_BADGE[item.priority].color, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, letterSpacing: '0.04em' }}>
             {SEV_LABEL[item.priority]}
           </span>
         </div>
         {item.portfolioImpact != null && <ImpactLevel value={item.portfolioImpact} />}
       </div>
 
-      <p style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF', marginBottom: 4 }}>
+      {/* Hebrew category title */}
+      <p style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF', marginBottom: 5 }}>
         {heCategory(item.category)}
       </p>
 
-      <p style={{ fontSize: 12, color: '#7A7A7A', lineHeight: 1.5 }}>{item.whyItMatters}</p>
+      {/* Hebrew executive summary — primary visible text */}
+      <p style={{ fontSize: 12, color: '#B3B3B3', lineHeight: 1.55 }}>{heSummary}</p>
 
       {expanded && (
-        <div className="flex items-center gap-4 text-xs" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #1e1e1e', color: '#4A4A4A' }}>
-          {date && <span>{date}</span>}
-          {item.urgency != null && <span>דחיפות {item.urgency.toFixed(0)}/10</span>}
-          {item.portfolioImpact != null && <span>השפעה על תיק {item.portfolioImpact.toFixed(0)}/10</span>}
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #1e1e1e' }}>
+          {/* Original source text */}
+          {item.whyItMatters && (
+            <p style={{ fontSize: 11, color: '#4A4A4A', lineHeight: 1.5, marginBottom: 8, fontStyle: 'italic' }}>
+              {item.whyItMatters}
+            </p>
+          )}
+          <div className="flex items-center gap-4" style={{ fontSize: 11, color: '#4A4A4A' }}>
+            {date && <span>{date}</span>}
+            {item.urgency != null && <span>דחיפות {item.urgency.toFixed(0)}/10</span>}
+            {item.portfolioImpact != null && <span>השפעה {item.portfolioImpact.toFixed(0)}/10</span>}
+          </div>
         </div>
       )}
     </button>
