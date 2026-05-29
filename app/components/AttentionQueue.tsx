@@ -303,7 +303,7 @@ export function AttentionQueue({ alerts, newsItems }: Props) {
 
       {/* Header */}
       <div style={{ padding: '16px 28px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#5A5A5A' }}>
+        <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '0.01em', color: '#6A6A6A' }}>
           מה דורש תשומת לב
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

@@ -39,9 +39,15 @@ interface Holding {
 }
 
 interface PriceData {
-  current_price: number | null
-  change: number | null
-  change_percent: number | null
+  current_price:       number | null
+  change:              number | null
+  change_percent:      number | null
+  pre_change_percent:  number | null
+  pre_change:          number | null
+  post_change_percent: number | null
+  post_change:         number | null
+  market_state:        string | null
+  has_extended:        boolean
 }
 
 const CASH = 38_000
@@ -327,7 +333,14 @@ export default function Dashboard() {
     const currentPrice = p?.current_price ?? null
     const pnlPct = currentPrice != null ? ((currentPrice - h.avg_buy_price) / h.avg_buy_price) * 100 : null
     const value = (currentPrice ?? h.avg_buy_price) * h.shares
-    return { ...h, currentPrice, pnlPct, value, changePercent: p?.change_percent ?? null, changeAmount: p?.change ?? null }
+    return {
+      ...h, currentPrice, pnlPct, value,
+      changePercent:       p?.change_percent      ?? null,
+      changeAmount:        p?.change              ?? null,
+      preChangePercent:    p?.pre_change_percent  ?? null,
+      postChangePercent:   p?.post_change_percent ?? null,
+      marketState:         p?.market_state        ?? null,
+    }
   }).sort((a, b) => b.value - a.value)
 
   const invested = rows.reduce((s, r) => s + r.value, 0)
@@ -427,7 +440,7 @@ export default function Dashboard() {
         {/* 2. Holdings — full width primary workspace */}
           <div style={{ background: '#111111', border: '1px solid #1a1a1a', borderRadius: 16, overflow: 'hidden' }}>
           <div style={{ borderBottom: '1px solid #1a1a1a', padding: '16px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#5A5A5A' }}>אחזקות</span>
+            <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '0.01em', color: '#6A6A6A' }}>אחזקות</span>
             <button
               onClick={() => { setForm(EMPTY_FORM); setFormError(null); setShowModal(true) }}
               style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#4A4A4A', fontSize: 12, cursor: 'pointer', transition: 'color 0.12s' }}
@@ -455,6 +468,8 @@ export default function Dashboard() {
                     <th className="text-right px-5 py-4 cursor-pointer select-none" style={TH_STYLE} onClick={() => handleHoldingSort('day')}>
                       <span className="inline-flex items-center justify-end">היום <SortCaret active={holdingSort.col === 'day'} dir={holdingSort.dir} /></span>
                     </th>
+                    <th className="text-right px-4 py-4 hidden lg:table-cell" style={TH_STYLE}>PRE</th>
+                    <th className="text-right px-4 py-4 hidden xl:table-cell" style={TH_STYLE}>AFTER</th>
                     <th className="text-right px-5 py-4 cursor-pointer select-none hidden sm:table-cell" style={TH_STYLE} onClick={() => handleHoldingSort('pnl')}>
                       <span className="inline-flex items-center justify-end">P&L <SortCaret active={holdingSort.col === 'pnl'} dir={holdingSort.dir} /></span>
                     </th>
@@ -520,6 +535,26 @@ export default function Dashboard() {
                             </div>
                           ) : (
                             <span style={{ color: '#2E2E2E', fontSize: 16 }}>—</span>
+                          )}
+                        </td>
+                        {/* PRE */}
+                        <td className="px-4 py-5 text-right hidden lg:table-cell">
+                          {h.preChangePercent != null ? (
+                            <span style={{ color: h.preChangePercent >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                              {h.preChangePercent >= 0 ? '+' : ''}{h.preChangePercent.toFixed(2)}%
+                            </span>
+                          ) : (
+                            <span style={{ color: '#262626', fontSize: 13 }}>—</span>
+                          )}
+                        </td>
+                        {/* AFTER */}
+                        <td className="px-4 py-5 text-right hidden xl:table-cell">
+                          {h.postChangePercent != null ? (
+                            <span style={{ color: h.postChangePercent >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                              {h.postChangePercent >= 0 ? '+' : ''}{h.postChangePercent.toFixed(2)}%
+                            </span>
+                          ) : (
+                            <span style={{ color: '#262626', fontSize: 13 }}>—</span>
                           )}
                         </td>
                         <td className="px-5 py-5 text-right hidden sm:table-cell">
