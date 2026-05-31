@@ -144,7 +144,7 @@ function FGGauge({ value, color }: { value: number; color: string }) {
   const topY = cy - r
 
   return (
-    <svg width="280" height="205" viewBox="0 0 280 205" style={{ display: 'block', flexShrink: 0 }}>
+    <svg viewBox="0 0 280 205" style={{ display: 'block', width: '100%', height: 'auto' }}>
       <defs>
         <linearGradient id="cnnGrad" gradientUnits="userSpaceOnUse" x1="22" y1="0" x2="258" y2="0">
           <stop offset="0%"   stopColor="#ff2222" />
@@ -259,60 +259,51 @@ function FearGreedCard({ fearGreed, loaded, vixForSentence }: {
   const desc = fearGreed != null ? fgDescription(fearGreed) : null
 
   return (
-    <Card className="card-animate-0" style={{ flex: 1 }}>
-      <div style={{ padding: '28px', display: 'flex', alignItems: 'center', gap: 24, flex: 1 }}>
+    <Card className="card-animate-2" style={{ flex: 1 }}>
+      <div style={{ padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
 
-        {/* ── Left: gauge ── */}
-        <div style={{ flexShrink: 0 }}>
-          {!loaded ? (
-            <div style={{ width: 250, height: 185, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontFamily: MONO, fontSize: 12, color: '#333', letterSpacing: '0.06em' }}>loading…</span>
+        {/* Title */}
+        <p style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: '#444', textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 2 }}>
+          Fear and Greed Index
+        </p>
+        <p style={{ fontFamily: MONO, fontSize: 10, color: '#333', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+          CNN Business
+        </p>
+
+        {!loaded ? (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: '#333', letterSpacing: '0.06em' }}>loading…</span>
+          </div>
+        ) : fearGreed == null ? (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: '#ff3b3b' }}>Unavailable</span>
+            <span style={{ fontFamily: MONO, fontSize: 10, color: '#333' }}>CNN not reachable</span>
+          </div>
+        ) : (
+          <>
+            {/* Gauge — responsive, fills card width */}
+            <div style={{ width: '100%', maxWidth: 240, margin: '0 auto 4px' }}>
+              <FGGauge value={fearGreed} color={zone!.color} />
             </div>
-          ) : fearGreed == null ? (
-            <div style={{ width: 250, height: 185, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: '#ff3b3b' }}>Unavailable</span>
-              <span style={{ fontFamily: MONO, fontSize: 10, color: '#333' }}>CNN not reachable</span>
-            </div>
-          ) : (
-            <FGGauge value={fearGreed} color={zone!.color} />
-          )}
-        </div>
 
-        {/* ── Vertical divider ── */}
-        <div style={{ width: 1, height: 120, background: '#1e1e1e', flexShrink: 0, alignSelf: 'center' }} />
+            {/* Description */}
+            {desc && (
+              <>
+                <p style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: '#e0e0e0', lineHeight: 1.4, marginBottom: 6 }}>
+                  {desc.headline}
+                </p>
+                <p style={{ fontFamily: SANS, fontSize: 12, color: '#555', lineHeight: 1.55, flex: 1 }}>
+                  {desc.body}
+                </p>
+              </>
+            )}
+          </>
+        )}
 
-        {/* ── Right: text panel ── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0 }}>
-          <p style={{ fontFamily: SANS, fontSize: 19, fontWeight: 700, color: '#f0f0f0', letterSpacing: '-0.02em', lineHeight: 1.2, marginBottom: 4 }}>
-            Fear and Greed Index
-          </p>
-          <p style={{ fontFamily: MONO, fontSize: 11, color: '#444', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 20 }}>
-            CNN Business
-          </p>
-
-          {desc != null ? (
-            <>
-              <p style={{ fontFamily: SANS, fontSize: 14, fontWeight: 700, color: '#e0e0e0', lineHeight: 1.4, marginBottom: 8 }}>
-                {desc.headline}
-              </p>
-              <p style={{ fontFamily: SANS, fontSize: 13, color: '#555', lineHeight: 1.6, flex: 1 }}>
-                {desc.body}
-              </p>
-            </>
-          ) : (
-            <p style={{ fontFamily: SANS, fontSize: 13, color: '#333', lineHeight: 1.6, flex: 1 }}>
-              Fetching real-time market sentiment data…
-            </p>
-          )}
-
-          <p style={{ fontFamily: MONO, fontSize: 10, color: '#333', marginTop: 16, letterSpacing: '0.08em' }}>
-            Updated:{' '}
-            <span style={{ color: '#00e5cc' }}>
-              {fetchedAt ? timeAgoShort(fetchedAt) : '—'}
-            </span>
-          </p>
-        </div>
-
+        {/* Attribution */}
+        <p style={{ fontFamily: MONO, fontSize: 9, color: '#333', marginTop: 12, letterSpacing: '0.08em' }}>
+          Updated: <span style={{ color: '#00e5cc' }}>{fetchedAt ? timeAgoShort(fetchedAt) : '—'}</span>
+        </p>
       </div>
     </Card>
   )
@@ -400,7 +391,7 @@ function PortfolioValueCard({ totalValue, cashPct, todayPnL, todayPnLPct, loadin
   const countTotal = useCountUp(Math.round(totalValue))
 
   return (
-    <Card className="card-animate-2" style={{ flex: 1 }}>
+    <Card className="card-animate-0" style={{ flex: 1 }}>
       <div style={{ padding: '28px', flex: 1, display: 'flex', flexDirection: 'column' }}>
 
         {/* Label */}
@@ -560,7 +551,7 @@ export function DashboardSummary({
         margin: '0 auto',
         padding: '28px 36px 24px',
         display: 'grid',
-        gridTemplateColumns: '2fr 1fr 1.3fr',
+        gridTemplateColumns: '1fr 1fr 1fr',
         gap: 20,
       }}>
         <PortfolioValueCard
