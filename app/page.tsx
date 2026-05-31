@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
 // Zone components (homepage)
-import { PortfolioPulse } from './components/PortfolioPulse'
-import { MacroStrip } from './components/MacroStrip'
+import { DashboardHeader } from './components/DashboardHeader'
+import { DashboardSummary } from './components/DashboardSummary'
 import { AttentionQueue, type AlertRow, type NewsItem } from './components/AttentionQueue'
 import { UpcomingTimeline, type TimelineEvent } from './components/UpcomingTimeline'
 
@@ -268,8 +268,9 @@ export default function Dashboard() {
     return () => window.removeEventListener('keydown', handler)
   }, [showModal])
 
-  const ilsRate  = prices['ILS=X']?.current_price ?? null
-  const vixValue = prices['^VIX']?.current_price ?? null
+  const ilsRate          = prices['ILS=X']?.current_price    ?? null
+  const ilsChangePercent = prices['ILS=X']?.change_percent   ?? null
+  const vixValue         = prices['^VIX']?.current_price     ?? null
 
   function fmtAmount(usdAmount: number, decimals = 0) {
     if (currency === 'ILS' && ilsRate)
@@ -381,61 +382,38 @@ export default function Dashboard() {
       className="min-h-screen antialiased"
       style={{ background: '#080808', color: '#FFFFFF', fontFamily: 'var(--font-geist-sans), system-ui, sans-serif' }}
     >
-      {/* Header */}
-      <header
-        className="flex items-center justify-between px-5 sm:px-8 py-4"
-        style={{ background: '#0E0E0E', borderBottom: '1px solid #1C1C1C' }}
-      >
-        <div className="flex items-center gap-2.5">
-          <span className="text-sm font-semibold tracking-tight text-white">Investor OS</span>
-          {pricesLoading && (
-            <span className="text-xs tabular-nums" style={{ color: '#555' }}>Updating…</span>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          {lastSync && (
-            <span className="text-xs hidden sm:block tabular-nums" style={{ color: '#444' }}>{timeAgo(lastSync)}</span>
-          )}
-          {ilsRate && (
-            <span className="text-xs tabular-nums hidden sm:block" style={{ color: '#555' }}>
-              ₪{ilsRate.toFixed(3)}/$
-            </span>
-          )}
-          <div className="flex rounded-lg overflow-hidden text-xs font-medium" style={{ border: '1px solid #2e2e2e' }}>
-            <button
-              onClick={() => { setCurrency('USD'); localStorage.setItem('currency', 'USD') }}
-              className="px-2.5 py-1.5 transition-colors"
-              style={{ background: currency === 'USD' ? '#ffffff' : 'transparent', color: currency === 'USD' ? '#000000' : '#555' }}
-            >$</button>
-            <button
-              onClick={() => { setCurrency('ILS'); localStorage.setItem('currency', 'ILS') }}
-              className="px-2.5 py-1.5 transition-colors"
-              style={{ background: currency === 'ILS' ? '#ffffff' : 'transparent', color: currency === 'ILS' ? '#000000' : '#555' }}
-            >₪</button>
-          </div>
-        </div>
-      </header>
+      {/* ── Header ── */}
+      <DashboardHeader
+        ilsRate={ilsRate}
+        ilsChangePercent={ilsChangePercent}
+        currency={currency}
+        setCurrency={setCurrency}
+        pricesLoading={pricesLoading}
+      />
 
-      {/* ── Intelligence Strip — full width, above content ── */}
-      <MacroStrip vix={vixValue} />
+      {/* ── Dashboard Summary: 3 cards + connection bar ── */}
+      <DashboardSummary
+        vix={vixValue}
+        totalValue={total}
+        investedValue={invested}
+        cashPct={cashPct}
+        todayPnL={todayPnL}
+        todayPnLPct={todayPnLPct}
+        loading={loading}
+        hasPrices={hasPrices}
+        formatAmount={fmtAmount}
+        currency={currency}
+        criticalAlerts={criticalAlerts}
+        warningAlerts={warningAlerts}
+        totalAlerts={criticalAlerts + warningAlerts}
+        holdingsCount={holdings.length}
+        lastSync={lastSync}
+        minCashPct={policy?.min_cash_pct}
+        maxCashPct={policy?.max_cash_pct}
+      />
 
       {/* ── Main content ── */}
       <div className="max-w-[1320px] mx-auto px-6 sm:px-10 py-10" style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-
-        {/* 1. Portfolio Hero */}
-        <PortfolioPulse
-          totalValue={total}
-          cashPct={cashPct}
-          todayPnL={todayPnL}
-          todayPnLPct={todayPnLPct}
-          criticalAlerts={criticalAlerts}
-          warningAlerts={warningAlerts}
-          minCashPct={policy?.min_cash_pct}
-          maxCashPct={policy?.max_cash_pct}
-          loading={loading}
-          hasPrices={hasPrices}
-          formatAmount={fmtAmount}
-        />
 
         {/* 2. Holdings — full width primary workspace */}
           <div style={{ background: '#0E0E0E', border: '1px solid #1C1C1C', borderRadius: 16, overflow: 'hidden' }}>
