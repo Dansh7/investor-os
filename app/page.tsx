@@ -30,6 +30,7 @@ interface Holding {
   company_name: string
   shares: number
   avg_buy_price: number
+  category?: string | null
   thesis?: string | null
   thesis_status?: string | null
   thesis_break_conditions?: string[] | null
@@ -217,7 +218,7 @@ export default function Dashboard() {
     setLoading(true)
     const { data, error } = await supabase
       .from('holdings')
-      .select('id, ticker, company_name, shares, avg_buy_price, thesis, thesis_status, thesis_break_conditions, conviction_score, target_allocation_pct, max_allocation_pct')
+      .select('id, ticker, company_name, shares, avg_buy_price, category, thesis, thesis_status, thesis_break_conditions, conviction_score, target_allocation_pct, max_allocation_pct')
       .eq('portfolio_id', 1)
     if (error) setFetchError(error.message)
     else { setFetchError(null); setHoldings(data ?? []); holdingsRef.current = data ?? [] }
@@ -359,6 +360,27 @@ export default function Dashboard() {
     thesis_status: r.thesis_status, thesis_break_conditions: r.thesis_break_conditions,
   }))
 
+  const SECTOR_META: Record<string, { label: string; color: string }> = {
+    ai_tech: { label: 'AI / Tech', color: '#3b82f6' },
+    crypto:  { label: 'Crypto',    color: '#f59e0b' },
+    energy:  { label: 'Energy',    color: '#22c55e' },
+  }
+  const catWeights: Record<string, number> = {}
+  for (const r of sortedRows) {
+    const cat = r.category || 'other'
+    catWeights[cat] = (catWeights[cat] || 0) + r.weight
+  }
+  const exposureData = [
+    { label: 'Cash', pct: cashPct, color: '#ffaa00' },
+    ...Object.entries(catWeights)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, pct]) => ({
+        label: SECTOR_META[cat]?.label ?? 'Other',
+        pct,
+        color: SECTOR_META[cat]?.color ?? '#666666',
+      })),
+  ]
+
   const activeAlerts = alerts.filter(a => a.alert_status === 'active')
   const criticalAlerts = activeAlerts.filter(a => a.priority >= 8).length
   const warningAlerts = activeAlerts.filter(a => a.priority >= 5 && a.priority < 8).length
@@ -410,6 +432,7 @@ export default function Dashboard() {
         lastSync={lastSync}
         minCashPct={policy?.min_cash_pct}
         maxCashPct={policy?.max_cash_pct}
+        exposureData={exposureData}
       />
 
       {/* ── Main content ── */}

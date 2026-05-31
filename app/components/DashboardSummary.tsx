@@ -28,6 +28,7 @@ interface Props {
   lastSync:       Date | null
   minCashPct?:    number | null
   maxCashPct?:    number | null
+  exposureData:   { label: string; pct: number; color: string }[]
 }
 
 // ─── Zone helpers ─────────────────────────────────────────────────────────────
@@ -247,62 +248,37 @@ function Card({ children, className, style }: {
 
 // ─── CARD 1 — FEAR & GREED (CNN style) ───────────────────────────────────────
 
-function FearGreedCard({ fearGreed, loaded, vixForSentence }: {
+function FearGreedCard({ fearGreed, loaded }: {
   fearGreed: number | null
   loaded: boolean
-  vixForSentence: number | null
 }) {
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null)
   useEffect(() => { if (loaded && fearGreed != null) setFetchedAt(new Date()) }, [loaded, fearGreed])
 
   const zone = fearGreed != null ? fgZone(fearGreed) : null
-  const desc = fearGreed != null ? fgDescription(fearGreed) : null
 
   return (
     <Card className="card-animate-2" style={{ flex: 1 }}>
-      <div style={{ padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+      <div style={{ padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
 
-        {/* Title */}
-        <p style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: '#444', textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 2 }}>
-          Fear and Greed Index
-        </p>
-        <p style={{ fontFamily: MONO, fontSize: 10, color: '#333', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-          CNN Business
+        <p style={{ fontFamily: MONO, fontSize: 10, color: '#444', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 14 }}>
+          Fear &amp; Greed
         </p>
 
         {!loaded ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: MONO, fontSize: 12, color: '#333', letterSpacing: '0.06em' }}>loading…</span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: '#333' }}>loading…</span>
           </div>
         ) : fearGreed == null ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: '#ff3b3b' }}>Unavailable</span>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: '#333' }}>CNN not reachable</span>
-          </div>
+          <span style={{ fontFamily: SANS, fontSize: 13, color: '#444' }}>Unavailable</span>
         ) : (
-          <>
-            {/* Gauge — responsive, fills card width */}
-            <div style={{ width: '100%', maxWidth: 240, margin: '0 auto 4px' }}>
-              <FGGauge value={fearGreed} color={zone!.color} />
-            </div>
-
-            {/* Description */}
-            {desc && (
-              <>
-                <p style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: '#e0e0e0', lineHeight: 1.4, marginBottom: 6 }}>
-                  {desc.headline}
-                </p>
-                <p style={{ fontFamily: SANS, fontSize: 12, color: '#555', lineHeight: 1.55, flex: 1 }}>
-                  {desc.body}
-                </p>
-              </>
-            )}
-          </>
+          <div style={{ width: '100%', maxWidth: 220 }}>
+            <FGGauge value={fearGreed} color={zone!.color} />
+          </div>
         )}
 
-        {/* Attribution */}
-        <p style={{ fontFamily: MONO, fontSize: 9, color: '#333', marginTop: 12, letterSpacing: '0.08em' }}>
-          Updated: <span style={{ color: '#00e5cc' }}>{fetchedAt ? timeAgoShort(fetchedAt) : '—'}</span>
+        <p style={{ fontFamily: MONO, fontSize: 9, color: '#2a2a2a', marginTop: 10, letterSpacing: '0.08em' }}>
+          CNN · <span style={{ color: '#444' }}>live</span>
         </p>
       </div>
     </Card>
@@ -313,55 +289,47 @@ function FearGreedCard({ fearGreed, loaded, vixForSentence }: {
 
 function VixCard({ vix }: { vix: number | null }) {
   const info = vix != null ? vixZone(vix) : null
-  const desc = vix != null ? vixDescription(vix) : null
 
   return (
     <Card className="card-animate-1" style={{ flex: 1 }}>
-      <div style={{ padding: '28px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+      <div style={{ padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 0 }}>
 
-        {/* Title */}
-        <p style={{ fontFamily: BEBAS, fontSize: 36, color: '#f0f0f0', letterSpacing: '0.06em', lineHeight: 1, marginBottom: 2 }}>
-          VIX
-        </p>
-        <p style={{ fontFamily: MONO, fontSize: 10, color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 24 }}>
+        <p style={{ fontFamily: MONO, fontSize: 10, color: '#444', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 18 }}>
           Volatility Index
         </p>
 
         {/* Heartbeat circle */}
         <div style={{
-          width: 80, height: 80, borderRadius: '50%',
-          border: '2px solid #3b82f6',
-          background: 'rgba(59,130,246,0.07)',
+          width: 68, height: 68, borderRadius: '50%',
+          border: '1.5px solid #3b82f6',
+          background: 'rgba(59,130,246,0.06)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginBottom: 20,
+          marginBottom: 16,
         }}>
-          <svg width="44" height="26" viewBox="0 0 44 26" fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="38" height="22" viewBox="0 0 44 26" fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="1,13 9,13 13,2 19,24 25,13 31,13 35,8 39,13 43,13" />
           </svg>
         </div>
 
-        {/* Big VIX number */}
+        <p style={{ fontFamily: BEBAS, fontSize: 28, color: '#666', letterSpacing: '0.08em', lineHeight: 1, marginBottom: 10 }}>
+          VIX
+        </p>
+
         {vix != null ? (
           <>
-            <div style={{ fontFamily: BEBAS, fontSize: 60, color: '#ffffff', letterSpacing: '0.02em', lineHeight: 1, marginBottom: 8 }}>
+            <div style={{ fontFamily: BEBAS, fontSize: 56, color: '#ffffff', letterSpacing: '0.02em', lineHeight: 1, marginBottom: 12 }}>
               {vix.toFixed(1)}
             </div>
             <span style={{
-              fontFamily: MONO, fontSize: 12, fontWeight: 700,
+              fontFamily: MONO, fontSize: 11, fontWeight: 700,
               color: info!.color, background: info!.bg,
-              padding: '4px 14px', borderRadius: 20, letterSpacing: '0.10em',
-              marginBottom: 20,
+              padding: '3px 12px', borderRadius: 20, letterSpacing: '0.08em',
             }}>
               {info!.label}
             </span>
-            <p style={{ fontFamily: SANS, fontSize: 12, color: '#555', lineHeight: 1.6, marginTop: 'auto' }}>
-              {desc}
-            </p>
           </>
         ) : (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-            <span style={{ fontFamily: BEBAS, fontSize: 52, color: '#2a2a2a', letterSpacing: '0.02em' }}>—</span>
-          </div>
+          <div style={{ fontFamily: BEBAS, fontSize: 52, color: '#2a2a2a' }}>—</div>
         )}
 
       </div>
@@ -371,7 +339,7 @@ function VixCard({ vix }: { vix: number | null }) {
 
 // ─── CARD 3 — PORTFOLIO VALUE ─────────────────────────────────────────────────
 
-function PortfolioValueCard({ totalValue, cashPct, todayPnL, todayPnLPct, loading, hasPrices, formatAmount, currency }: {
+function PortfolioValueCard({ totalValue, cashPct, todayPnL, todayPnLPct, loading, hasPrices, formatAmount, currency, exposureData }: {
   totalValue:   number
   cashPct:      number
   todayPnL:     number
@@ -380,94 +348,105 @@ function PortfolioValueCard({ totalValue, cashPct, todayPnL, todayPnLPct, loadin
   hasPrices:    boolean
   formatAmount: (n: number, d?: number) => string
   currency:     'USD' | 'ILS'
+  exposureData: { label: string; pct: number; color: string }[]
 }) {
   const hasPnL   = hasPrices && Math.abs(todayPnL) > 0
   const pnlPos   = todayPnL >= 0
   const pnlColor = hasPnL ? (pnlPos ? '#00ff87' : '#ff3b3b') : '#3a3a3a'
   const pnlSign  = pnlPos ? '+' : ''
-
-  const cashOOB    = cashPct > 20 || cashPct < 5
-  const cashColor  = cashOOB ? '#3b82f6' : '#3b82f6'
   const countTotal = useCountUp(Math.round(totalValue))
 
   return (
     <Card className="card-animate-0" style={{ flex: 1 }}>
-      <div style={{ padding: '28px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '24px', flex: 1, display: 'flex', gap: 24 }}>
 
-        {/* Label */}
-        <p style={{ fontFamily: MONO, fontSize: 10, color: '#444', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 12 }}>
-          Portfolio Value
-        </p>
+        {/* ── Left: core metrics ── */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
-        {/* Hero row: value + P&L side by side */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
-          {/* Main value */}
-          <div style={{
-            fontFamily: BEBAS, fontSize: 52,
-            color: loading ? '#2a2a2a' : '#ffffff',
-            letterSpacing: '0.01em', lineHeight: 1,
-          }}>
-            {loading ? '—' : formatAmount(countTotal)}
+          <p style={{ fontFamily: MONO, fontSize: 10, color: '#444', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 10 }}>
+            Portfolio Value
+          </p>
+
+          {/* Hero + P&L */}
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
+            <div style={{ fontFamily: BEBAS, fontSize: 56, color: loading ? '#2a2a2a' : '#ffffff', letterSpacing: '0.01em', lineHeight: 0.92 }}>
+              {loading ? '—' : formatAmount(countTotal)}
+            </div>
+            {hasPnL && (
+              <div style={{ textAlign: 'right', paddingBottom: 6, flexShrink: 0 }}>
+                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 600, color: pnlColor, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
+                  {pnlSign}{formatAmount(Math.abs(todayPnL))}
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: pnlColor, opacity: 0.8, fontVariantNumeric: 'tabular-nums' }}>
+                  ({pnlSign}{todayPnLPct.toFixed(2)}%)
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: '#444', letterSpacing: '0.10em', marginTop: 4, textTransform: 'uppercase' }}>
+                  Today
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Daily P&L stacked */}
-          {hasPnL && (
-            <div style={{ textAlign: 'right', paddingBottom: 4, flexShrink: 0 }}>
-              <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 600, color: pnlColor, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
-                {pnlSign}{formatAmount(Math.abs(todayPnL))}
-              </div>
-              <div style={{ fontFamily: MONO, fontSize: 13, color: pnlColor, opacity: 0.85, fontVariantNumeric: 'tabular-nums' }}>
-                ({pnlSign}{todayPnLPct.toFixed(2)}%)
-              </div>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: '#444', letterSpacing: '0.10em', marginTop: 4, textTransform: 'uppercase' }}>
-                Today
+          <div style={{ height: 1, background: '#1e1e1e', margin: '14px 0' }} />
+
+          {/* Cash row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 8,
+              background: '#141414', border: '1px solid #242424',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8" strokeLinecap="round">
+                <rect x="2" y="7" width="20" height="14" rx="2" />
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+              </svg>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 1 }}>Cash</div>
+              <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 700, color: '#e0e0e0', fontVariantNumeric: 'tabular-nums' }}>
+                {formatAmount(totalValue * cashPct / 100)}
               </div>
             </div>
-          )}
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontFamily: BEBAS, fontSize: 26, color: '#3b82f6', lineHeight: 1 }}>
+                {cashPct.toFixed(1)}%
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: '#333', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                Of portfolio
+              </div>
+            </div>
+            <CashDonut cashPct={cashPct} />
+          </div>
         </div>
 
-        {/* Divider */}
-        <div style={{ height: 1, background: '#1e1e1e', margin: '16px 0' }} />
-
-        {/* Cash row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-
-          {/* Wallet icon */}
-          <div style={{
-            width: 40, height: 40, borderRadius: 10,
-            background: '#141414', border: '1px solid #242424',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8" strokeLinecap="round">
-              <rect x="2" y="7" width="20" height="14" rx="2" />
-              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-            </svg>
-          </div>
-
-          {/* Cash info */}
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 2 }}>
-              Cash
-            </div>
-            <div style={{ fontFamily: SANS, fontSize: 16, fontWeight: 700, color: '#e0e0e0', fontVariantNumeric: 'tabular-nums' }}>
-              {formatAmount(totalValue * cashPct / 100)}
-            </div>
-          </div>
-
-          {/* Percentage */}
-          <div style={{ textAlign: 'right', flexShrink: 0 }}>
-            <div style={{ fontFamily: BEBAS, fontSize: 28, color: cashColor, letterSpacing: '0.02em', lineHeight: 1 }}>
-              {cashPct.toFixed(1)}%
-            </div>
-            <div style={{ fontFamily: MONO, fontSize: 9, color: '#333', letterSpacing: '0.10em', textTransform: 'uppercase', marginTop: 2 }}>
-              Of Portfolio
+        {/* ── Right: exposure panel ── */}
+        {exposureData.length > 0 && (
+          <div style={{ width: 190, flexShrink: 0, borderLeft: '1px solid #1e1e1e', paddingLeft: 24, display: 'flex', flexDirection: 'column' }}>
+            <p style={{ fontFamily: MONO, fontSize: 10, color: '#444', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 12 }}>
+              Exposure
+            </p>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 0 }}>
+              {exposureData.map((item, i) => (
+                <div
+                  key={item.label}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '7px 0',
+                    borderBottom: i < exposureData.length - 1 ? '1px solid #161616' : 'none',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
+                    <span style={{ fontFamily: SANS, fontSize: 12, color: '#777' }}>{item.label}</span>
+                  </div>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: '#e0e0e0', fontVariantNumeric: 'tabular-nums' }}>
+                    {item.pct.toFixed(1)}%
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
-
-          {/* Donut */}
-          <CashDonut cashPct={cashPct} />
-
-        </div>
+        )}
 
       </div>
     </Card>
@@ -532,7 +511,7 @@ export function DashboardSummary({
   vix, totalValue, investedValue, cashPct, todayPnL, todayPnLPct,
   loading, hasPrices, formatAmount, currency,
   criticalAlerts, warningAlerts, totalAlerts, holdingsCount,
-  lastSync, minCashPct, maxCashPct,
+  lastSync, minCashPct, maxCashPct, exposureData,
 }: Props) {
   const [macro, setMacro] = useState<MacroState>({ fearGreed: null, loaded: false })
 
@@ -551,7 +530,7 @@ export function DashboardSummary({
         margin: '0 auto',
         padding: '28px 36px 24px',
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr 1fr',
+        gridTemplateColumns: '3fr 1fr 1fr',
         gap: 20,
       }}>
         <PortfolioValueCard
@@ -563,12 +542,12 @@ export function DashboardSummary({
           hasPrices={hasPrices}
           formatAmount={formatAmount}
           currency={currency}
+          exposureData={exposureData}
         />
         <VixCard vix={vix} />
         <FearGreedCard
           fearGreed={macro.fearGreed}
           loaded={macro.loaded}
-          vixForSentence={vix}
         />
       </div>
 
