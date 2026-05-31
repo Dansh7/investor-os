@@ -560,7 +560,7 @@ export function DashboardSummary({
         margin: '0 auto',
         padding: '28px 36px 24px',
         display: 'grid',
-        gridTemplateColumns: '2fr 1fr 1.3fr',
+        gridTemplateColumns: '2fr 1.3fr 1fr',
         gap: 20,
       }}>
         <FearGreedCard
@@ -568,7 +568,6 @@ export function DashboardSummary({
           loaded={macro.loaded}
           vixForSentence={vix}
         />
-        <VixCard vix={vix} />
         <PortfolioValueCard
           totalValue={totalValue}
           cashPct={cashPct}
@@ -579,6 +578,7 @@ export function DashboardSummary({
           formatAmount={formatAmount}
           currency={currency}
         />
+        <VixCard vix={vix} />
       </div>
 
       {/* Market Connection Bar */}
