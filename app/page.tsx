@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
 // Zone components (homepage)
@@ -25,7 +25,7 @@ const supabase = createClient(
 )
 
 interface Holding {
-  id: number
+  id: string
   ticker: string
   company_name: string
   shares: number
@@ -49,10 +49,15 @@ interface PriceData {
   post_change:         number | null
   market_state:        string | null
   has_extended:        boolean
+  fifty_two_week_high: number | null
+  ytd_pct:             number | null
 }
 
-const CASH = 38_000
 const REFRESH_MS = 5 * 60 * 1000
+
+const COMPANY_OVERRIDES: Record<string, string> = {
+  IREN: 'IREN Ltd',
+}
 
 const CATEGORIES = [
   { value: '', label: 'Select category' },
@@ -74,6 +79,66 @@ function usd(n: number, decimals = 0) {
 
 function pct(n: number) { return (n >= 0 ? '+' : '') + n.toFixed(2) + '%' }
 
+const FLAG_LABELS: Record<string, string> = {
+  '🔥': 'Strong momentum',
+  '🔻': 'Deep correction',
+  '⚡': 'Upcoming event',
+  '📰': 'Recent news',
+  '⚠': 'Active alert',
+}
+
+function drawdownClass(athPct: number | null): 'mild' | 'significant' | 'deep' | null {
+  if (athPct == null || athPct >= -10) return null
+  if (athPct >= -25) return 'mild'
+  if (athPct >= -40) return 'significant'
+  return 'deep'
+}
+
+function attentionLevel(changePercent: number | null, athPct: number | null): 'HIGH' | 'MED' | 'LOW' {
+  const dayAbs = Math.abs(changePercent ?? 0)
+  if (dayAbs >= 4 || (athPct != null && athPct <= -40)) return 'HIGH'
+  if (dayAbs >= 2 || (athPct != null && athPct <= -25)) return 'MED'
+  return 'LOW'
+}
+
+function AttentionBadge({ level }: { level: 'HIGH' | 'MED' | 'LOW' }) {
+  if (level === 'LOW') return null
+  const cfg = level === 'HIGH'
+    ? { label: 'HIGH', color: '#FF5A5A', bg: 'rgba(255,90,90,0.10)' }
+    : { label: 'MED',  color: '#F5A623', bg: 'rgba(245,166,35,0.10)' }
+  return (
+    <span style={{
+      fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
+      color: cfg.color, background: cfg.bg,
+      padding: '2px 5px', borderRadius: 3, display: 'inline-block',
+    }}>
+      {cfg.label}
+    </span>
+  )
+}
+
+function dayPctStyle(p: number): React.CSSProperties {
+  const abs = Math.abs(p)
+  const pos = p >= 0
+  if (abs >= 5) return {
+    color: pos ? '#00FF8A' : '#FF3535',
+    fontWeight: 700,
+    background: pos ? 'rgba(0,255,138,0.11)' : 'rgba(255,53,53,0.11)',
+    padding: '2px 7px',
+    borderRadius: 5,
+    textShadow: pos ? '0 0 12px rgba(0,255,138,0.28)' : '0 0 12px rgba(255,53,53,0.28)',
+  }
+  if (abs >= 3) return {
+    color: pos ? '#00DC82' : '#FF5A5A',
+    fontWeight: 700,
+    background: pos ? 'rgba(0,220,130,0.08)' : 'rgba(255,90,90,0.08)',
+    padding: '2px 7px',
+    borderRadius: 5,
+  }
+  if (abs >= 1) return { color: pos ? '#00DC82' : '#FF5A5A', fontWeight: 600 }
+  return { color: pos ? '#00966A' : '#BB3333', fontWeight: 500 }
+}
+
 function PlusIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -92,7 +157,7 @@ function XIcon({ size = 14 }: { size?: number }) {
 
 // ─── Holdings table helpers ───────────────────────────────────────────────────
 
-type SortCol = 'weight' | 'day' | 'pnl' | 'conviction'
+type SortCol = 'weight' | 'day' | 'day_dollar' | 'pnl' | 'pnl_dollar' | 'value' | 'ath' | 'ytd' | 'conviction'
 
 type Tab = 'intelligence' | 'thesis' | 'risk' | 'events' | 'watchlist' | 'policy'
 
@@ -150,7 +215,7 @@ function ThesisPill({ status }: { status: string | null | undefined }) {
 }
 
 function SortCaret({ active, dir }: { active: boolean; dir: 1 | -1 }) {
-  return <span style={{ color: active ? '#7A7A7A' : '#2e2e2e', fontSize: 9, marginLeft: 2 }}>{active ? (dir === 1 ? '↑' : '↓') : '↕'}</span>
+  return <span style={{ color: active ? '#C0C0C0' : '#484848', fontSize: 9, marginLeft: 2 }}>{active ? (dir === 1 ? '↑' : '↓') : '↕'}</span>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -174,9 +239,16 @@ export default function Dashboard() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [holdingSort, setHoldingSort] = useState<{ col: SortCol; dir: 1 | -1 }>({ col: 'weight', dir: -1 })
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState({ qty: '', avgCost: '' })
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
   const [currency, setCurrency] = useState<'USD' | 'ILS'>('USD')
+  const [cash, setCash] = useState(38_000)
+  const [editingCash, setEditingCash] = useState(false)
+  const [cashDraft, setCashDraft] = useState('')
 
   const [alerts, setAlerts] = useState<AlertRow[]>([])
   const [newsItems, setNewsItems] = useState<NewsItem[]>([])
@@ -196,6 +268,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (localStorage.getItem('currency') === 'ILS') setCurrency('ILS')
+    const storedCash = localStorage.getItem('portfolio_cash')
+    if (storedCash) {
+      const val = parseFloat(storedCash)
+      if (!isNaN(val) && val >= 0) setCash(Math.round(val))
+    }
   }, [])
 
   const fetchPrices = useCallback(async (tickers: string[]) => {
@@ -272,6 +349,9 @@ export default function Dashboard() {
   const ilsRate          = prices['ILS=X']?.current_price    ?? null
   const ilsChangePercent = prices['ILS=X']?.change_percent   ?? null
   const vixValue         = prices['^VIX']?.current_price     ?? null
+  const vixChange        = prices['^VIX']?.change            ?? null
+  const vixChangePct     = prices['^VIX']?.change_percent    ?? null
+  const costBasis        = holdings.reduce((s, h) => s + h.shares * h.avg_buy_price, 0)
 
   function fmtAmount(usdAmount: number, decimals = 0) {
     if (currency === 'ILS' && ilsRate)
@@ -323,31 +403,78 @@ export default function Dashboard() {
     else { setShowModal(false); fetchHoldings() }
   }
 
-  async function handleDelete(id: number) {
+  async function handleDelete(id: string) {
     const { error } = await supabase.from('holdings').delete().eq('id', id)
     if (error) setFetchError(error.message)
     else { setConfirmDeleteId(null); fetchHoldings() }
   }
 
+  function handleSaveCash() {
+    const val = parseFloat(cashDraft.replace(/[$,\s]/g, ''))
+    if (isNaN(val) || val < 0) return
+    const rounded = Math.round(val)
+    setCash(rounded)
+    localStorage.setItem('portfolio_cash', String(rounded))
+    setEditingCash(false)
+    setCashDraft('')
+  }
+
+  async function handleSaveEdit(id: string) {
+    const qty  = parseFloat(editDraft.qty)
+    const cost = parseFloat(editDraft.avgCost)
+    if (isNaN(qty) || isNaN(cost) || qty <= 0 || cost <= 0) {
+      setEditError('Enter valid qty and cost (must be > 0)')
+      return
+    }
+    setEditSaving(true)
+    setEditError(null)
+    try {
+      const res = await fetch(`/api/holdings/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shares: qty, avg_buy_price: cost }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setEditError(json.error ?? 'Save failed')
+      } else {
+        setEditingId(null)
+        setEditError(null)
+        fetchHoldings()
+      }
+    } catch (err) {
+      setEditError('Network error')
+      console.error('[handleSaveEdit]', err)
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
   // Derived calculations
   const rows = holdings.map(h => {
     const p = prices[h.ticker]
-    const currentPrice = p?.current_price ?? null
-    const pnlPct = currentPrice != null ? ((currentPrice - h.avg_buy_price) / h.avg_buy_price) * 100 : null
-    const value = (currentPrice ?? h.avg_buy_price) * h.shares
+    const currentPrice    = p?.current_price ?? null
+    const pnlPct          = currentPrice != null ? ((currentPrice - h.avg_buy_price) / h.avg_buy_price) * 100 : null
+    const pnlDollar       = currentPrice != null ? (currentPrice - h.avg_buy_price) * h.shares : null
+    const value           = (currentPrice ?? h.avg_buy_price) * h.shares
+    const dailyDollar     = p?.change != null ? p.change * h.shares : null
+    const ath52           = p?.fifty_two_week_high ?? null
+    const athPct          = currentPrice != null && ath52 != null && ath52 > 0
+                            ? ((currentPrice - ath52) / ath52) * 100 : null
     return {
-      ...h, currentPrice, pnlPct, value,
+      ...h, currentPrice, pnlPct, pnlDollar, value, dailyDollar, athPct,
       changePercent:       p?.change_percent      ?? null,
       changeAmount:        p?.change              ?? null,
       preChangePercent:    p?.pre_change_percent  ?? null,
       postChangePercent:   p?.post_change_percent ?? null,
       marketState:         p?.market_state        ?? null,
+      ytdPct:              p?.ytd_pct             ?? null,
     }
   }).sort((a, b) => b.value - a.value)
 
   const invested = rows.reduce((s, r) => s + r.value, 0)
-  const total = invested + CASH
-  const cashPct = total > 0 ? (CASH / total) * 100 : 0
+  const total = invested + cash
+  const cashPct = total > 0 ? (cash / total) * 100 : 0
   const sortedRows = rows.map(r => ({ ...r, weight: total > 0 ? (r.value / total) * 100 : 0 }))
   const todayPnL = holdings.reduce((sum, h) => { const p = prices[h.ticker]; if (!p?.change) return sum; return sum + h.shares * p.change }, 0)
   const todayPnLPct = invested > 0 ? (todayPnL / (invested - todayPnL)) * 100 : 0
@@ -381,6 +508,37 @@ export default function Dashboard() {
       })),
   ]
 
+  const tickerFlags = useMemo(() => {
+    const map: Record<string, string[]> = {}
+    const now = Date.now()
+    const dayAgo = now - 24 * 60 * 60 * 1000
+    const weekAhead = now + 7 * 24 * 60 * 60 * 1000
+    for (const item of newsItems) {
+      const t = item.ticker?.toUpperCase()
+      if (!t || !item.published_at) continue
+      if (new Date(item.published_at).getTime() > dayAgo && (item.importance_score ?? 0) >= 7) {
+        const arr = (map[t] ??= [])
+        if (!arr.includes('📰')) arr.push('📰')
+      }
+    }
+    for (const ev of events) {
+      const t = ev.ticker?.toUpperCase()
+      if (!t) continue
+      const ts = new Date(ev.scheduled_at).getTime()
+      if (ts > now && ts < weekAhead) {
+        const arr = (map[t] ??= [])
+        if (!arr.includes('⚡')) arr.push('⚡')
+      }
+    }
+    for (const al of alerts) {
+      const t = al.ticker?.toUpperCase()
+      if (!t || al.alert_status !== 'active' || al.priority < 7) continue
+      const arr = (map[t] ??= [])
+      if (!arr.includes('⚠')) arr.push('⚠')
+    }
+    return map
+  }, [newsItems, events, alerts])
+
   const activeAlerts = alerts.filter(a => a.alert_status === 'active')
   const criticalAlerts = activeAlerts.filter(a => a.priority >= 8).length
   const warningAlerts = activeAlerts.filter(a => a.priority >= 5 && a.priority < 8).length
@@ -392,10 +550,15 @@ export default function Dashboard() {
   const tableRows = [...sortedRows].sort((a, b) => {
     const { col, dir } = holdingSort
     let va: number, vb: number
-    if (col === 'day') { va = a.changePercent ?? 0; vb = b.changePercent ?? 0 }
-    else if (col === 'pnl') { va = a.pnlPct ?? 0; vb = b.pnlPct ?? 0 }
-    else if (col === 'conviction') { va = a.conviction_score ?? 0; vb = b.conviction_score ?? 0 }
-    else { va = a.weight; vb = b.weight }
+    if      (col === 'day')       { va = a.changePercent ?? 0;  vb = b.changePercent ?? 0 }
+    else if (col === 'day_dollar'){ va = a.dailyDollar   ?? 0;  vb = b.dailyDollar   ?? 0 }
+    else if (col === 'pnl')       { va = a.pnlPct        ?? 0;  vb = b.pnlPct        ?? 0 }
+    else if (col === 'pnl_dollar'){ va = a.pnlDollar     ?? 0;  vb = b.pnlDollar     ?? 0 }
+    else if (col === 'value')     { va = a.value;                vb = b.value }
+    else if (col === 'ath')       { va = a.athPct        ?? 0;  vb = b.athPct        ?? 0 }
+    else if (col === 'ytd')       { va = a.ytdPct        ?? 0;  vb = b.ytdPct        ?? 0 }
+    else if (col === 'conviction'){ va = a.conviction_score ?? 0; vb = b.conviction_score ?? 0 }
+    else                          { va = a.weight;               vb = b.weight }
     return dir * (va - vb)
   })
 
@@ -416,6 +579,8 @@ export default function Dashboard() {
       {/* ── Dashboard Summary: 3 cards + connection bar ── */}
       <DashboardSummary
         vix={vixValue}
+        vixChange={vixChange}
+        vixChangePct={vixChangePct}
         totalValue={total}
         investedValue={invested}
         cashPct={cashPct}
@@ -436,19 +601,29 @@ export default function Dashboard() {
       />
 
       {/* ── Main content ── */}
-      <div className="max-w-[1320px] mx-auto px-6 sm:px-10 py-10" style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+      <div className="max-w-[1800px] mx-auto px-2 sm:px-4 py-10" style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
-        {/* 2. Holdings — full width primary workspace */}
-          <div style={{ background: '#0E0E0E', border: '1px solid #1C1C1C', borderRadius: 16, overflow: 'hidden' }}>
-          <div style={{ borderBottom: '1px solid #1C1C1C', padding: '20px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '0.01em', color: '#6A6A6A' }}>אחזקות</span>
+        {/* 2. Holdings — premium portfolio table */}
+        <div style={{ background: '#0E0E0E', border: '1px solid #1C1C1C', borderRadius: 16, overflow: 'hidden' }}>
+
+          {/* Table header bar */}
+          <div style={{ borderBottom: '1px solid #1C1C1C', padding: '16px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <span style={{ fontSize: 17, fontWeight: 600, color: '#E8E8E8', letterSpacing: '-0.01em' }}>Portfolio</span>
+              <span style={{ fontSize: 13, color: '#666', fontWeight: 500 }}>{tableRows.length} positions</span>
+            </div>
             <button
               onClick={() => { setForm(EMPTY_FORM); setFormError(null); setShowModal(true) }}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#4A4A4A', fontSize: 12, cursor: 'pointer', transition: 'color 0.12s' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#FFFFFF')}
-              onMouseLeave={e => (e.currentTarget.style.color = '#4A4A4A')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                color: '#909090', fontSize: 13, cursor: 'pointer',
+                background: '#161616', border: '1px solid #363636',
+                padding: '7px 16px', borderRadius: 8, transition: 'color 0.12s, border-color 0.12s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#555' }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#909090'; e.currentTarget.style.borderColor = '#363636' }}
             >
-              <PlusIcon /> הוסף
+              <PlusIcon /> Add
             </button>
           </div>
 
@@ -457,170 +632,442 @@ export default function Dashboard() {
           ) : loading ? (
             <p className="px-5 py-10 text-center text-sm" style={{ color: '#555' }}>Loading…</p>
           ) : tableRows.length === 0 ? (
-            <p className="px-5 py-10 text-center text-sm" style={{ color: '#555' }}>No holdings yet</p>
+            <p className="px-5 py-10 text-center text-sm" style={{ color: '#555' }}>No positions yet</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: 1540 }}>
+                <colgroup>
+                  <col style={{ width: 118 }} />
+                  <col style={{ width: 210 }} />
+                  <col style={{ width: 72 }} />
+                  <col style={{ width: 102 }} />
+                  <col style={{ width: 108 }} />
+                  <col style={{ width: 118 }} />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 108 }} />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 112 }} />
+                  <col style={{ width: 88 }} />
+                  <col style={{ width: 96 }} />
+                  <col style={{ width: 84 }} />
+                  <col style={{ width: 96 }} />
+                  <col style={{ width: 86 }} />
+                </colgroup>
                 <thead>
                   <tr style={{ background: '#0A0A0A', borderBottom: '1px solid #1C1C1C' }}>
-                    <th className="text-left px-7 py-4" style={TH_STYLE}>נייר</th>
-                    <th className="text-left px-5 py-4 hidden sm:table-cell" style={TH_STYLE}>חברה</th>
-                    <th className="text-right px-5 py-4 hidden md:table-cell" style={TH_STYLE}>מחיר</th>
-                    <th className="text-right px-5 py-4 cursor-pointer select-none" style={TH_STYLE} onClick={() => handleHoldingSort('day')}>
-                      <span className="inline-flex items-center justify-end">היום <SortCaret active={holdingSort.col === 'day'} dir={holdingSort.dir} /></span>
+                    {/* Ticker */}
+                    <th className="text-left" style={{ ...TH_STYLE, padding: '10px 7px 10px 16px', color: '#E5E5E5', fontSize: 15, fontWeight: 600 }}>Ticker</th>
+                    {/* Company */}
+                    <th className="text-left" style={{ ...TH_STYLE, padding: '10px 7px', color: '#E5E5E5', fontSize: 15, fontWeight: 600 }}>Company</th>
+                    {/* Qty */}
+                    <th className="text-right" style={{ ...TH_STYLE, padding: '10px 7px', color: '#E5E5E5', fontSize: 15, fontWeight: 600 }}>Qty</th>
+                    {/* Avg Cost */}
+                    <th className="text-right" style={{ ...TH_STYLE, padding: '10px 7px', color: '#E5E5E5', fontSize: 15, fontWeight: 600 }}>Avg Cost</th>
+                    {/* Price */}
+                    <th className="text-right" style={{ ...TH_STYLE, padding: '10px 7px', color: '#E5E5E5', fontSize: 15, fontWeight: 600 }}>Price</th>
+                    {/* Value */}
+                    <th
+                      className="text-right cursor-pointer select-none"
+                      style={{ ...TH_STYLE, padding: '10px 7px', color: holdingSort.col === 'value' ? '#FFFFFF' : '#E5E5E5', fontSize: 15, fontWeight: 600 }}
+                      onClick={() => handleHoldingSort('value')}
+                    >
+                      Value <SortCaret active={holdingSort.col === 'value'} dir={holdingSort.dir} />
                     </th>
-                    <th className="text-right px-4 py-4 hidden lg:table-cell" style={TH_STYLE}>PRE</th>
-                    <th className="text-right px-4 py-4 hidden xl:table-cell" style={TH_STYLE}>AFTER</th>
-                    <th className="text-right px-5 py-4 cursor-pointer select-none hidden sm:table-cell" style={TH_STYLE} onClick={() => handleHoldingSort('pnl')}>
-                      <span className="inline-flex items-center justify-end">P&L <SortCaret active={holdingSort.col === 'pnl'} dir={holdingSort.dir} /></span>
+                    {/* Day % */}
+                    <th
+                      className="text-right cursor-pointer select-none"
+                      style={{ ...TH_STYLE, padding: '10px 7px', color: holdingSort.col === 'day' ? '#FFFFFF' : '#E5E5E5', fontSize: 15, fontWeight: 600 }}
+                      onClick={() => handleHoldingSort('day')}
+                    >
+                      Day% <SortCaret active={holdingSort.col === 'day'} dir={holdingSort.dir} />
                     </th>
-                    <th className="text-right px-5 py-4 hidden lg:table-cell" style={TH_STYLE}>רווח $</th>
-                    <th className="text-right px-5 py-4 cursor-pointer select-none" style={TH_STYLE} onClick={() => handleHoldingSort('weight')}>
-                      <span className="inline-flex items-center justify-end">משקל <SortCaret active={holdingSort.col === 'weight'} dir={holdingSort.dir} /></span>
+                    {/* Day $ */}
+                    <th
+                      className="text-right cursor-pointer select-none"
+                      style={{ ...TH_STYLE, padding: '10px 7px', color: holdingSort.col === 'day_dollar' ? '#FFFFFF' : '#E5E5E5', fontSize: 15, fontWeight: 600 }}
+                      onClick={() => handleHoldingSort('day_dollar')}
+                    >
+                      Day$ <SortCaret active={holdingSort.col === 'day_dollar'} dir={holdingSort.dir} />
                     </th>
-                    <th className="text-right px-5 py-4 cursor-pointer select-none hidden lg:table-cell" style={TH_STYLE} onClick={() => handleHoldingSort('conviction')}>
-                      <span className="inline-flex items-center justify-end">אמון <SortCaret active={holdingSort.col === 'conviction'} dir={holdingSort.dir} /></span>
+                    {/* P&L % */}
+                    <th
+                      className="text-right cursor-pointer select-none"
+                      style={{ ...TH_STYLE, padding: '10px 7px', color: holdingSort.col === 'pnl' ? '#FFFFFF' : '#E5E5E5', fontSize: 15, fontWeight: 600 }}
+                      onClick={() => handleHoldingSort('pnl')}
+                    >
+                      P&L% <SortCaret active={holdingSort.col === 'pnl'} dir={holdingSort.dir} />
                     </th>
-                    <th className="text-left px-5 py-4 hidden xl:table-cell" style={TH_STYLE}>תזה</th>
-                    <th className="w-10" />
+                    {/* P&L $ */}
+                    <th
+                      className="text-right cursor-pointer select-none"
+                      style={{ ...TH_STYLE, padding: '10px 7px', color: holdingSort.col === 'pnl_dollar' ? '#FFFFFF' : '#E5E5E5', fontSize: 15, fontWeight: 600 }}
+                      onClick={() => handleHoldingSort('pnl_dollar')}
+                    >
+                      P&L$ <SortCaret active={holdingSort.col === 'pnl_dollar'} dir={holdingSort.dir} />
+                    </th>
+                    {/* YTD */}
+                    <th
+                      className="text-right cursor-pointer select-none"
+                      style={{ ...TH_STYLE, padding: '10px 7px', color: holdingSort.col === 'ytd' ? '#FFFFFF' : '#E5E5E5', fontSize: 15, fontWeight: 600 }}
+                      onClick={() => handleHoldingSort('ytd')}
+                    >
+                      YTD% <SortCaret active={holdingSort.col === 'ytd'} dir={holdingSort.dir} />
+                    </th>
+                    {/* ATH */}
+                    <th
+                      className="text-right cursor-pointer select-none"
+                      style={{ ...TH_STYLE, padding: '10px 7px', color: holdingSort.col === 'ath' ? '#FFFFFF' : '#E5E5E5', fontSize: 15, fontWeight: 600 }}
+                      onClick={() => handleHoldingSort('ath')}
+                    >
+                      vs ATH <SortCaret active={holdingSort.col === 'ath'} dir={holdingSort.dir} />
+                    </th>
+                    {/* Weight */}
+                    <th
+                      className="text-right cursor-pointer select-none"
+                      style={{ ...TH_STYLE, padding: '10px 7px', color: holdingSort.col === 'weight' ? '#FFFFFF' : '#E5E5E5', fontSize: 15, fontWeight: 600 }}
+                      onClick={() => handleHoldingSort('weight')}
+                    >
+                      Wt% <SortCaret active={holdingSort.col === 'weight'} dir={holdingSort.dir} />
+                    </th>
+                    {/* Status */}
+                    <th className="text-left" style={{ ...TH_STYLE, padding: '10px 7px', color: '#E5E5E5', fontSize: 15, fontWeight: 600 }}>Status</th>
+                    {/* Actions */}
+                    <th style={{ width: 80 }} />
                   </tr>
                 </thead>
                 <tbody>
                   {tableRows.map((h, idx) => {
-                    const dotColor = THESIS_DOT_COLOR[(h.thesis_status ?? '').toLowerCase().replace(/\s+/g, '_')] ?? '#2a2a2a'
-                    const pnlDollar = h.currentPrice != null ? (h.currentPrice - h.avg_buy_price) * h.shares : null
-                    const dailyDollar = h.changeAmount != null ? h.changeAmount * h.shares : null
-                    const targetPct = h.target_allocation_pct ?? h.max_allocation_pct
-                    const maxPct = h.max_allocation_pct
-                    const barFill = maxPct && h.weight > maxPct ? '#FF5A5A'
-                      : targetPct && h.weight > targetPct * 0.85 ? '#F5A623'
-                      : '#00DC82'
-                    const barWidth = targetPct ? Math.min(100, (h.weight / targetPct) * 100) : null
+                    const dotColor  = THESIS_DOT_COLOR[(h.thesis_status ?? '').toLowerCase().replace(/\s+/g, '_')] ?? '#2a2a2a'
+                    const isEditing = editingId === h.id
+                    const athWarning = h.athPct != null && h.athPct <= -30
+
+                    const rowFlags: string[] = []
+                    if ((h.changePercent ?? 0) >= 4) rowFlags.push('🔥')
+                    else if ((h.changePercent ?? 0) <= -4 || (h.athPct != null && h.athPct <= -30)) rowFlags.push('🔻')
+                    for (const f of tickerFlags[h.ticker] ?? []) { if (!rowFlags.includes(f)) rowFlags.push(f) }
+
                     return (
                       <tr
                         key={h.id}
                         style={{
-                          borderBottom: idx < tableRows.length - 1 ? '1px solid #181818' : 'none',
+                          borderBottom: idx < tableRows.length - 1 ? '1px solid #222222' : 'none',
                           transition: 'background 0.1s',
+                          background: isEditing ? '#131313' : 'transparent',
                         }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#111111')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        onMouseEnter={e => { if (!isEditing) e.currentTarget.style.background = '#141414' }}
+                        onMouseLeave={e => { if (!isEditing) e.currentTarget.style.background = 'transparent' }}
                       >
-                        <td className="px-7 py-5">
-                          <div className="flex items-center gap-3">
-                            <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: dotColor, flexShrink: 0, display: 'inline-block' }} />
-                            <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 17, color: '#FFFFFF', letterSpacing: '0.02em' }}>
+                        {/* 1. Ticker */}
+                        <td style={{ padding: '13px 8px 13px 18px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 7, overflow: 'hidden' }}>
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: dotColor, flexShrink: 0, display: 'inline-block' }} />
+                            <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 16, color: '#fff', letterSpacing: '0.03em', flexShrink: 0 }}>
                               {h.ticker}
                             </span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-5 hidden sm:table-cell max-w-[180px]">
-                          <span className="block truncate" style={{ color: '#9A9A9A', fontSize: 15 }}>{h.company_name}</span>
-                        </td>
-                        <td className="px-5 py-5 text-right hidden md:table-cell">
-                          <span style={{ color: '#E0E0E0', fontSize: 16, fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>
-                            {h.currentPrice != null ? fmtAmount(h.currentPrice, 2) : '—'}
-                          </span>
-                        </td>
-                        <td className="px-5 py-5 text-right">
-                          {h.changePercent != null ? (
-                            <div className="flex flex-col items-end">
-                              <span style={{ color: h.changePercent >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 16, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                                {h.changePercent >= 0 ? '+' : ''}{h.changePercent.toFixed(2)}%
+                            {rowFlags.length > 0 && (
+                              <span style={{ display: 'flex', gap: 1, fontSize: 11, lineHeight: 1, flexShrink: 0 }}>
+                                {rowFlags.map(f => (
+                                  <span key={f} title={FLAG_LABELS[f]} style={{ opacity: 0.78, cursor: 'default' }}>{f}</span>
+                                ))}
                               </span>
-                              {dailyDollar != null && (
-                                <span style={{ color: dailyDollar >= 0 ? '#00804D' : '#8B2020', fontSize: 11, fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>
-                                  {dailyDollar >= 0 ? '+' : ''}{fmtAmount(Math.abs(dailyDollar), 0)}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span style={{ color: '#2E2E2E', fontSize: 16 }}>—</span>
-                          )}
-                        </td>
-                        {/* PRE */}
-                        <td className="px-4 py-5 text-right hidden lg:table-cell">
-                          {h.preChangePercent != null ? (
-                            <span style={{ color: h.preChangePercent >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                              {h.preChangePercent >= 0 ? '+' : ''}{h.preChangePercent.toFixed(2)}%
-                            </span>
-                          ) : (
-                            <span style={{ color: '#262626', fontSize: 13 }}>—</span>
-                          )}
-                        </td>
-                        {/* AFTER */}
-                        <td className="px-4 py-5 text-right hidden xl:table-cell">
-                          {h.postChangePercent != null ? (
-                            <span style={{ color: h.postChangePercent >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                              {h.postChangePercent >= 0 ? '+' : ''}{h.postChangePercent.toFixed(2)}%
-                            </span>
-                          ) : (
-                            <span style={{ color: '#262626', fontSize: 13 }}>—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-5 text-right hidden sm:table-cell">
-                          {h.pnlPct != null ? (
-                            <span style={{ color: h.pnlPct >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 16, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                              {h.pnlPct >= 0 ? '+' : ''}{h.pnlPct.toFixed(2)}%
-                            </span>
-                          ) : (
-                            <span style={{ color: '#2E2E2E', fontSize: 16 }}>—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-5 text-right hidden lg:table-cell">
-                          {pnlDollar != null ? (
-                            <span style={{ color: pnlDollar >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 15, fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>
-                              {(pnlDollar >= 0 ? '+' : '-') + fmtAmount(Math.abs(pnlDollar), 0)}
-                            </span>
-                          ) : (
-                            <span style={{ color: '#2E2E2E', fontSize: 15 }}>—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-5 text-right">
-                          <div className="flex flex-col items-end gap-1.5">
-                            <div className="flex items-baseline gap-1.5">
-                              <span style={{ color: '#E0E0E0', fontSize: 16, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                                {h.weight.toFixed(1)}%
-                              </span>
-                              {targetPct && (
-                                <span style={{ color: '#444', fontSize: 11 }}>/ {targetPct}%</span>
-                              )}
-                            </div>
-                            {barWidth != null && (
-                              <div style={{ width: 52, height: 2, background: '#1e1e1e', borderRadius: 1, overflow: 'hidden' }}>
-                                <div style={{ width: `${barWidth}%`, height: '100%', backgroundColor: barFill, borderRadius: 1 }} />
-                              </div>
                             )}
                           </div>
                         </td>
-                        <td className="px-5 py-5 hidden lg:table-cell">
-                          <div className="flex justify-end">
-                            <ConvictionDots score={h.conviction_score} />
+
+                        {/* 2. Company */}
+                        <td style={{ padding: '13px 8px' }}>
+                          <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#E0E0E0', fontSize: 16 }}>
+                            {COMPANY_OVERRIDES[h.ticker] ?? h.company_name}
+                          </span>
+                        </td>
+
+                        {/* 3. Qty — editable */}
+                        <td style={{ padding: '13px 8px', textAlign: 'right' }}>
+                          {isEditing ? (
+                            <input
+                              type="number" min="0" step="any"
+                              value={editDraft.qty}
+                              onChange={e => setEditDraft(d => ({ ...d, qty: e.target.value }))}
+                              style={{ width: '100%', background: '#161616', border: '1px solid #444444', borderRadius: 6, color: '#FFFFFF', fontSize: 13, padding: '4px 8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                            />
+                          ) : (
+                            <span style={{ color: '#B8B8B8', fontSize: 15, fontVariantNumeric: 'tabular-nums' }}>
+                              {h.shares % 1 === 0 ? h.shares.toLocaleString() : h.shares.toFixed(4)}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* 4. Avg Cost — editable */}
+                        <td style={{ padding: '13px 8px', textAlign: 'right' }}>
+                          {isEditing ? (
+                            <input
+                              type="number" min="0" step="any"
+                              value={editDraft.avgCost}
+                              onChange={e => setEditDraft(d => ({ ...d, avgCost: e.target.value }))}
+                              style={{ width: '100%', background: '#161616', border: '1px solid #444444', borderRadius: 6, color: '#FFFFFF', fontSize: 13, padding: '4px 8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                            />
+                          ) : (
+                            <span style={{ color: '#B8B8B8', fontSize: 15, fontVariantNumeric: 'tabular-nums' }}>
+                              {usd(h.avg_buy_price, 2)}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* 5. Current Price */}
+                        <td style={{ padding: '13px 8px', textAlign: 'right' }}>
+                          <span style={{ color: '#e0e0e0', fontSize: 15, fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>
+                            {h.currentPrice != null ? usd(h.currentPrice, 2) : '—'}
+                          </span>
+                        </td>
+
+                        {/* 6. Position Value */}
+                        <td style={{ padding: '13px 8px', textAlign: 'right' }}>
+                          <span style={{ color: '#e0e0e0', fontSize: 15, fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                            {usd(h.value, 0)}
+                          </span>
+                        </td>
+
+                        {/* 7. Day % */}
+                        <td style={{ padding: '13px 8px', textAlign: 'right' }}>
+                          {h.changePercent != null ? (
+                            <span style={{ fontSize: 15, fontVariantNumeric: 'tabular-nums', ...dayPctStyle(h.changePercent) }}>
+                              {h.changePercent >= 0 ? '+' : ''}{h.changePercent.toFixed(2)}%
+                            </span>
+                          ) : <span style={{ color: '#333' }}>—</span>}
+                        </td>
+
+                        {/* 8. Day $ */}
+                        <td style={{ padding: '13px 8px', textAlign: 'right' }}>
+                          {h.dailyDollar != null ? (
+                            <span style={{ color: h.dailyDollar >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 15, fontVariantNumeric: 'tabular-nums' }}>
+                              {h.dailyDollar >= 0 ? '+' : '-'}{usd(Math.abs(h.dailyDollar), 0)}
+                            </span>
+                          ) : <span style={{ color: '#333' }}>—</span>}
+                        </td>
+
+                        {/* 9. P&L % */}
+                        <td style={{ padding: '13px 8px', textAlign: 'right' }}>
+                          {h.pnlPct != null ? (
+                            <span style={{ color: h.pnlPct >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                              {h.pnlPct >= 0 ? '+' : ''}{h.pnlPct.toFixed(1)}%
+                            </span>
+                          ) : <span style={{ color: '#333' }}>—</span>}
+                        </td>
+
+                        {/* 10. P&L $ */}
+                        <td style={{ padding: '13px 8px', textAlign: 'right' }}>
+                          {h.pnlDollar != null ? (
+                            <span style={{ color: h.pnlDollar >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 15, fontVariantNumeric: 'tabular-nums' }}>
+                              {h.pnlDollar >= 0 ? '+' : '-'}{usd(Math.abs(h.pnlDollar), 0)}
+                            </span>
+                          ) : <span style={{ color: '#333' }}>—</span>}
+                        </td>
+
+                        {/* 10b. YTD % */}
+                        <td style={{ padding: '13px 8px', textAlign: 'right' }}>
+                          {h.ytdPct != null ? (
+                            <span style={{ color: h.ytdPct >= 0 ? '#00DC82' : '#FF5A5A', fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                              {h.ytdPct >= 0 ? '+' : ''}{h.ytdPct.toFixed(1)}%
+                            </span>
+                          ) : <span style={{ color: '#333' }}>—</span>}
+                        </td>
+
+                        {/* 11. vs ATH + drawdown class */}
+                        <td style={{ padding: '13px 8px', textAlign: 'right' }}>
+                          {h.athPct != null ? (() => {
+                            const dc = drawdownClass(h.athPct)
+                            const dcColor = dc === 'deep' ? '#FF5A5A' : dc === 'significant' ? '#FF8C00' : '#F5A623'
+                            const dcLabel = dc === 'deep' ? 'deep' : dc === 'significant' ? 'signif.' : 'mild'
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+                                <span style={{
+                                  color: athWarning ? '#FF5A5A' : h.athPct >= -5 ? '#00DC82' : '#F5A623',
+                                  fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums',
+                                  background: athWarning ? 'rgba(255,90,90,0.10)' : 'transparent',
+                                  padding: athWarning ? '2px 5px' : '0',
+                                  borderRadius: athWarning ? 4 : 0,
+                                }}>
+                                  {h.athPct >= 0 ? '+' : ''}{h.athPct.toFixed(1)}%
+                                </span>
+                                {dc && (
+                                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: dcColor, opacity: 0.75 }}>
+                                    {dcLabel}
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })() : <span style={{ color: '#333' }}>—</span>}
+                        </td>
+
+                        {/* 12. Weight % */}
+                        <td style={{ padding: '13px 8px', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                            <span style={{ color: '#e0e0e0', fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                              {h.weight.toFixed(1)}%
+                            </span>
+                            <div style={{ width: 44, height: 2, background: '#1e1e1e', borderRadius: 1, overflow: 'hidden' }}>
+                              <div style={{ width: `${Math.min(100, h.weight / 0.25)}%`, height: '100%', background: '#3b82f6', borderRadius: 1, opacity: 0.7 }} />
+                            </div>
                           </div>
                         </td>
-                        <td className="px-5 py-5 hidden xl:table-cell">
-                          <ThesisPill status={h.thesis_status} />
+
+                        {/* 13. Status + Attention */}
+                        <td style={{ padding: '13px 8px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                            <ThesisPill status={h.thesis_status} />
+                            <AttentionBadge level={attentionLevel(h.changePercent, h.athPct)} />
+                          </div>
                         </td>
-                        <td className="px-4 py-5">
-                          {confirmDeleteId === h.id ? (
-                            <span className="flex items-center justify-end gap-2" style={{ fontSize: 11 }}>
-                              <button onClick={() => setConfirmDeleteId(null)} style={{ color: '#555' }} className="hover:text-white transition-colors">ביטול</button>
-                              <button onClick={() => handleDelete(h.id)} style={{ color: '#FF5A5A', fontWeight: 500 }} className="hover:opacity-70 transition-opacity">מחק</button>
+
+                        {/* 14. Actions */}
+                        <td style={{ padding: '13px 14px 13px 8px' }}>
+                          {isEditing ? (
+                            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <button
+                                  onClick={() => handleSaveEdit(h.id)}
+                                  disabled={editSaving}
+                                  style={{ color: editSaving ? '#555' : '#00DC82', fontSize: 18, lineHeight: 1, cursor: editSaving ? 'default' : 'pointer', fontWeight: 700, transition: 'opacity 0.12s' }}
+                                  onMouseEnter={e => { if (!editSaving) e.currentTarget.style.opacity = '0.7' }}
+                                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                                  title="Save"
+                                >{editSaving ? '…' : '✓'}</button>
+                                <button
+                                  onClick={() => { setEditingId(null); setEditError(null) }}
+                                  style={{ color: '#555', fontSize: 16, lineHeight: 1, cursor: 'pointer', transition: 'color 0.12s' }}
+                                  onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+                                  onMouseLeave={e => (e.currentTarget.style.color = '#555')}
+                                  title="Cancel"
+                                >✕</button>
+                              </span>
+                              {editError && (
+                                <span style={{ fontSize: 10, color: '#FF5A5A', whiteSpace: 'nowrap', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }} title={editError}>
+                                  {editError}
+                                </span>
+                              )}
+                            </span>
+                          ) : confirmDeleteId === h.id ? (
+                            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, fontSize: 11 }}>
+                              <button onClick={() => setConfirmDeleteId(null)} style={{ color: '#555', cursor: 'pointer' }} className="hover:text-white transition-colors">Cancel</button>
+                              <button onClick={() => handleDelete(h.id)} style={{ color: '#FF5A5A', fontWeight: 600, cursor: 'pointer' }} className="hover:opacity-70 transition-opacity">Delete</button>
                             </span>
                           ) : (
-                            <button onClick={() => setConfirmDeleteId(h.id)} style={{ color: '#252525' }} className="flex ml-auto hover:text-[#FF5A5A] transition-colors">
-                              <XIcon size={13} />
-                            </button>
+                            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+                              <button
+                                onClick={() => { setEditingId(h.id); setEditDraft({ qty: String(h.shares), avgCost: String(h.avg_buy_price) }); setEditError(null) }}
+                                style={{ color: '#6A6A6A', cursor: 'pointer', fontSize: 12, transition: 'color 0.12s' }}
+                                onMouseEnter={e => (e.currentTarget.style.color = '#DADADA')}
+                                onMouseLeave={e => (e.currentTarget.style.color = '#6A6A6A')}
+                                title="Edit"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => setConfirmDeleteId(h.id)}
+                                style={{ color: '#6A6A6A', cursor: 'pointer', transition: 'color 0.12s' }}
+                                onMouseEnter={e => (e.currentTarget.style.color = '#FF5A5A')}
+                                onMouseLeave={e => (e.currentTarget.style.color = '#6A6A6A')}
+                                title="Delete"
+                              >
+                                <XIcon size={14} />
+                              </button>
+                            </span>
                           )}
                         </td>
                       </tr>
                     )
                   })}
+
+                  {/* ── Cash row ── */}
+                  <tr style={{ borderTop: '2px solid #252525', background: '#0C0C0C' }}>
+                    {/* Ticker */}
+                    <td style={{ padding: '13px 8px 13px 18px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#3b82f6', flexShrink: 0, display: 'inline-block' }} />
+                        <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, color: '#555', letterSpacing: '0.04em' }}>CASH</span>
+                      </div>
+                    </td>
+                    {/* Company */}
+                    <td style={{ padding: '13px 8px' }}>
+                      <span style={{ color: '#444', fontSize: 14 }}>Cash & Equivalents</span>
+                    </td>
+                    {/* Qty, Avg Cost, Price — empty */}
+                    <td /><td /><td />
+                    {/* Value — editable cash amount */}
+                    <td style={{ padding: '13px 8px', textAlign: 'right' }}>
+                      {editingCash ? (
+                        <input
+                          type="number" min="0" step="1000" autoFocus
+                          value={cashDraft}
+                          onChange={e => setCashDraft(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleSaveCash(); if (e.key === 'Escape') setEditingCash(false) }}
+                          style={{ width: '100%', background: '#161616', border: '1px solid #444444', borderRadius: 6, color: '#FFFFFF', fontSize: 14, padding: '4px 8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                        />
+                      ) : (
+                        <span style={{ color: '#999', fontSize: 15, fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                          {usd(cash, 0)}
+                        </span>
+                      )}
+                    </td>
+                    {/* Day%, Day$, P&L%, P&L$, YTD%, VS ATH — empty */}
+                    <td /><td /><td /><td /><td /><td />
+                    {/* Wt% — derived cash % */}
+                    <td style={{ padding: '13px 8px', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                        <span style={{ color: '#777', fontSize: 14, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                          {cashPct.toFixed(1)}%
+                        </span>
+                        <div style={{ width: 44, height: 2, background: '#1e1e1e', borderRadius: 1, overflow: 'hidden' }}>
+                          <div style={{ width: `${Math.min(100, cashPct / 0.25)}%`, height: '100%', background: '#3b82f6', borderRadius: 1, opacity: 0.7 }} />
+                        </div>
+                      </div>
+                    </td>
+                    {/* Status — empty */}
+                    <td />
+                    {/* Actions */}
+                    <td style={{ padding: '13px 14px 13px 8px' }}>
+                      {editingCash ? (
+                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                          <button
+                            onClick={handleSaveCash}
+                            style={{ color: '#00DC82', fontSize: 18, lineHeight: 1, cursor: 'pointer', fontWeight: 700, transition: 'opacity 0.12s' }}
+                            onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
+                            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                            title="Save cash"
+                          >✓</button>
+                          <button
+                            onClick={() => setEditingCash(false)}
+                            style={{ color: '#555', fontSize: 16, lineHeight: 1, cursor: 'pointer', transition: 'color 0.12s' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+                            onMouseLeave={e => (e.currentTarget.style.color = '#555')}
+                            title="Cancel"
+                          >✕</button>
+                        </span>
+                      ) : (
+                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+                          <button
+                            onClick={() => { setCashDraft(String(cash)); setEditingCash(true) }}
+                            style={{ color: '#6A6A6A', cursor: 'pointer', fontSize: 12, transition: 'color 0.12s' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = '#DADADA')}
+                            onMouseLeave={e => (e.currentTarget.style.color = '#6A6A6A')}
+                            title="Edit cash"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                          </button>
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+
                 </tbody>
               </table>
             </div>
           )}
-          </div>
+        </div>
 
         {/* 3. Critical Today — full width feed below holdings */}
         <AttentionQueue alerts={alerts} newsItems={newsItems} />

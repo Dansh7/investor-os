@@ -12,6 +12,8 @@ const SANS  = "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif"
 
 interface Props {
   vix:            number | null
+  vixChange:      number | null
+  vixChangePct:   number | null
   totalValue:     number
   investedValue:  number
   cashPct:        number
@@ -34,34 +36,11 @@ interface Props {
 // ─── Zone helpers ─────────────────────────────────────────────────────────────
 
 function fgZone(v: number): { label: string; color: string } {
-  if (v <= 25) return { label: 'EXTREME FEAR', color: '#ff3b3b' }
-  if (v <= 45) return { label: 'FEAR',          color: '#ff8800' }
-  if (v <= 55) return { label: 'NEUTRAL',       color: '#999999' }
-  if (v <= 75) return { label: 'GREED',         color: '#00ff87' }
-  return              { label: 'EXTREME GREED', color: '#00ffaa' }
-}
-
-function fgDescription(v: number): { headline: string; body: string } {
-  if (v >= 75) return {
-    headline: 'Market sentiment is extremely bullish.',
-    body: 'Extreme confidence may signal overheating. Monitor for reversal signals.',
-  }
-  if (v >= 55) return {
-    headline: 'Market sentiment is positive.',
-    body: 'Investors are showing more confidence in the market.',
-  }
-  if (v >= 45) return {
-    headline: 'Market sentiment is neutral.',
-    body: 'Investors are holding steady with balanced conviction.',
-  }
-  if (v >= 25) return {
-    headline: 'Market sentiment shows fear.',
-    body: 'Investors are becoming cautious and reducing risk exposure.',
-  }
-  return {
-    headline: 'Market sentiment shows extreme fear.',
-    body: 'Investors are pulling back significantly from risk assets.',
-  }
+  if (v <= 25) return { label: 'Extreme Fear', color: '#ff3b3b' }
+  if (v <= 45) return { label: 'Fear',         color: '#ff8800' }
+  if (v <= 55) return { label: 'Neutral',      color: '#888888' }
+  if (v <= 75) return { label: 'Greed',        color: '#00ff87' }
+  return              { label: 'Extreme Greed',color: '#00ffaa' }
 }
 
 function vixZone(v: number): { label: string; color: string; bg: string } {
@@ -71,38 +50,29 @@ function vixZone(v: number): { label: string; color: string; bg: string } {
   return              { label: 'EXTREME',  color: '#ff3b3b',  bg: 'rgba(255,59,59,0.10)' }
 }
 
-function vixDescription(v: number): string {
-  if (v < 18)  return 'Low volatility indicates a calm and stable market.'
-  if (v < 24)  return 'Moderate volatility. Markets show normal fluctuation levels.'
-  if (v < 32)  return 'Elevated volatility. Increased market uncertainty detected.'
-  return 'Extreme volatility. High-risk environment — exercise caution.'
-}
-
-function timeAgoShort(d: Date | null): string {
-  if (!d) return '—'
-  const m = Math.floor((Date.now() - d.getTime()) / 60_000)
-  if (m < 1) return 'JUST NOW'
-  if (m < 60) return `${m}M AGO`
-  return `${Math.floor(m / 60)}H AGO`
-}
-
-function marketSentence(fg: number | null, vix: number | null): string {
-  if (fg == null && vix == null) return 'Awaiting market data…'
-  if (fg == null) return vix! < 15 ? 'Low volatility — monitor positions closely' : 'Elevated volatility — exercise caution'
-  if (vix == null) return fg > 60 ? 'Greed signals active — momentum favors bulls' : fg < 30 ? 'Fear dominant — potential opportunity or weakness' : 'Neutral — await clearer signals'
-  if (fg >= 55 && vix < 20) return 'Greed + low volatility — favorable conditions for momentum plays'
-  if (fg >= 55 && vix < 30) return 'Bullish sentiment, moderate volatility — maintain exposure'
-  if (fg >= 55) return 'Greed despite elevated VIX — trim risk selectively'
-  if (fg < 30 && vix > 30) return 'Extreme fear + high volatility — risk-off conditions prevail'
-  if (fg < 30) return 'Fear dominant — potential contrarian setup'
-  return 'Mixed signals — stay cautious and size positions conservatively'
+function marketStatus(fg: number | null, vix: number | null): { headline: string; detail: string } {
+  if (fg == null && vix == null) return { headline: 'ממתין לנתוני שוק', detail: '…' }
+  if (fg == null) return vix! < 15
+    ? { headline: 'שוק רגוע', detail: 'VIX נמוך — מעקב שוטף מומלץ' }
+    : { headline: 'תנודתיות מוגברת', detail: 'VIX גבוה — שמור על פוזיציות שמרניות' }
+  if (vix == null) return fg > 60
+    ? { headline: 'מצב שוק: חיובי', detail: 'Fear & Greed חיובי — מומנטום שורי' }
+    : fg < 30
+      ? { headline: 'מצב שוק: פחד', detail: 'Fear & Greed שלילי — בדוק הזדמנויות כניסה' }
+      : { headline: 'מצב שוק: ניטרלי', detail: 'סנטימנט מאוזן — המתן לאיתות ברור' }
+  if (fg >= 55 && vix < 20) return { headline: 'מצב שוק: חיובי', detail: 'VIX נמוך + Fear & Greed חיובי — תנאים טובים למומנטום' }
+  if (fg >= 55 && vix < 30) return { headline: 'מצב שוק: חיובי', detail: 'סנטימנט שורי + תנודתיות מתונה — שמור על החשיפה' }
+  if (fg >= 55)              return { headline: 'מצב שוק: זהירות', detail: 'Fear & Greed חיובי למרות VIX מוגבר — קזז סיכון' }
+  if (fg < 30 && vix > 30)   return { headline: 'מצב שוק: שלילי', detail: 'פחד קיצוני + VIX גבוה — עבור לנכסי מגן' }
+  if (fg < 30)               return { headline: 'מצב שוק: פחד', detail: 'סנטימנט שלילי — בדוק נקודות כניסה' }
+  return                              { headline: 'מצב שוק: מעורב', detail: 'איתותים סותרים — שמור על פוזיציות שמרניות' }
 }
 
 function connectionStatus(fg: number | null, vix: number | null): { label: string; color: string; bg: string } {
-  if (fg == null || vix == null) return { label: 'LOADING', color: '#555', bg: 'rgba(85,85,85,0.10)' }
-  if (fg >= 55 && vix < 20) return { label: 'POSITIVE SIGNAL', color: '#00ff87', bg: 'rgba(0,255,135,0.08)' }
-  if (fg < 30 || vix > 30)  return { label: 'RISK OFF',        color: '#ff3b3b', bg: 'rgba(255,59,59,0.08)' }
-  return                             { label: 'CAUTION',         color: '#ffaa00', bg: 'rgba(255,170,0,0.08)' }
+  if (fg == null || vix == null) return { label: 'טוען',       color: '#555',    bg: 'rgba(85,85,85,0.10)' }
+  if (fg >= 55 && vix < 20) return      { label: 'איתות חיובי', color: '#00ff87', bg: 'rgba(0,255,135,0.08)' }
+  if (fg < 30 || vix > 30)  return      { label: 'סיכון גבוה',  color: '#ff3b3b', bg: 'rgba(255,59,59,0.08)' }
+  return                                 { label: 'זהירות',       color: '#ffaa00', bg: 'rgba(255,170,0,0.08)' }
 }
 
 // ─── Count-up hook ────────────────────────────────────────────────────────────
@@ -125,12 +95,11 @@ function useCountUp(target: number, duration = 900): number {
 }
 
 // ─── CNN-style Arc Gauge ──────────────────────────────────────────────────────
-// viewBox 250×185, arc centre (125, 145), radius 115.
-// Labels at 0 / 50 / 100. Value + label rendered below arc centre.
+// viewBox 280×185. Arc centre (140, 148), radius 118.
+// Zone label is rendered outside in HTML for legibility at small sizes.
 
 function FGGauge({ value, color }: { value: number; color: string }) {
-  // viewBox 280×205 — wide enough for "100" label, tall enough for value + zone label
-  const cx = 140, cy = 148, r = 118, nLen = 95
+  const cx = 140, cy = 148, r = 118, nLen = 100
 
   const pt = (v: number) => {
     const a = Math.PI * (1 - v / 100)
@@ -140,12 +109,10 @@ function FGGauge({ value, color }: { value: number; color: string }) {
   const na  = Math.PI * (1 - Math.max(0, Math.min(100, value)) / 100)
   const tip = { x: +(cx + nLen * Math.cos(na)).toFixed(1), y: +(cy - nLen * Math.sin(na)).toFixed(1) }
   const arc = `M ${pt(0).x} ${pt(0).y} A ${r} ${r} 0 0 1 ${pt(100).x} ${pt(100).y}`
-
-  // Tick mark at v=50 (top of arc)
-  const topY = cy - r
+  const topY = cy - r  // = 30
 
   return (
-    <svg viewBox="0 0 280 205" style={{ display: 'block', width: '100%', height: 'auto' }}>
+    <svg viewBox="18 3 244 168" overflow="visible" style={{ display: 'block', width: '100%', height: 'auto' }}>
       <defs>
         <linearGradient id="cnnGrad" gradientUnits="userSpaceOnUse" x1="22" y1="0" x2="258" y2="0">
           <stop offset="0%"   stopColor="#ff2222" />
@@ -161,38 +128,18 @@ function FGGauge({ value, color }: { value: number; color: string }) {
       </defs>
 
       {/* Track */}
-      <path d={arc} fill="none" stroke="#1c1c1c" strokeWidth="14" strokeLinecap="round" />
+      <path d={arc} fill="none" stroke="#1e1e1e" strokeWidth="17" strokeLinecap="round" />
       {/* Gradient arc */}
-      <path d={arc} fill="none" stroke="url(#cnnGrad)" strokeWidth="14" strokeLinecap="round" />
+      <path d={arc} fill="none" stroke="url(#cnnGrad)" strokeWidth="17" strokeLinecap="round" />
 
       {/* Tick at 50 */}
-      <line x1={cx} y1={topY - 2} x2={cx} y2={topY + 10} stroke="#3a3a3a" strokeWidth="2" />
-
-      {/* Labels: 0 · 50 · 100 */}
-      <text x={12} y={cy + 18} textAnchor="middle"
-        style={{ fontFamily: MONO, fontSize: 11, fill: '#444' }}>0</text>
-      <text x={cx} y={topY - 10} textAnchor="middle"
-        style={{ fontFamily: MONO, fontSize: 11, fill: '#444' }}>50</text>
-      <text x={268} y={cy + 18} textAnchor="middle"
-        style={{ fontFamily: MONO, fontSize: 11, fill: '#444' }}>100</text>
+      <line x1={cx} y1={topY + 2} x2={cx} y2={topY + 16} stroke="#3a3a3a" strokeWidth="2.5" />
 
       {/* Needle */}
       <line x1={cx} y1={cy} x2={tip.x} y2={tip.y}
-        stroke="#ffffff" strokeWidth="3" strokeLinecap="round" filter="url(#cnnGlow)" />
-      {/* Base disc */}
-      <circle cx={cx} cy={cy} r="7" fill="#ffffff" filter="url(#cnnGlow)" />
-      <circle cx={cx} cy={cy} r="3" fill="#080808" />
-
-      {/* Value — large number below arc baseline */}
-      <text x={cx} y={cy + 32} textAnchor="middle"
-        style={{ fontFamily: BEBAS, fontSize: 48, fill: color, letterSpacing: 1 }}>
-        {Math.round(value)}
-      </text>
-      {/* Zone label */}
-      <text x={cx} y={cy + 50} textAnchor="middle"
-        style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, fill: color, letterSpacing: 2 }}>
-        {fgZone(value).label}
-      </text>
+        stroke="#ffffff" strokeWidth="4" strokeLinecap="round" filter="url(#cnnGlow)" />
+      <circle cx={cx} cy={cy} r="8" fill="#ffffff" filter="url(#cnnGlow)" />
+      <circle cx={cx} cy={cy} r="3.5" fill="#080808" />
     </svg>
   )
 }
@@ -200,19 +147,39 @@ function FGGauge({ value, color }: { value: number; color: string }) {
 // ─── Cash donut ───────────────────────────────────────────────────────────────
 
 function CashDonut({ cashPct }: { cashPct: number }) {
-  const r = 24, circ = 2 * Math.PI * r
+  const r = 22, circ = 2 * Math.PI * r
   const invLen  = ((100 - cashPct) / 100) * circ
   const cashLen = (cashPct / 100) * circ
   return (
-    <svg width="60" height="60" viewBox="0 0 60 60" style={{ flexShrink: 0 }}>
-      <circle cx="30" cy="30" r={r} fill="none" stroke="#1a1a1a" strokeWidth="7" />
-      <circle cx="30" cy="30" r={r} fill="none" stroke="#00ff87" strokeWidth="7"
+    <svg width="54" height="54" viewBox="0 0 54 54" style={{ flexShrink: 0 }}>
+      <circle cx="27" cy="27" r={r} fill="none" stroke="#1a1a1a" strokeWidth="6" />
+      <circle cx="27" cy="27" r={r} fill="none" stroke="#00ff87" strokeWidth="6"
         strokeDasharray={`${invLen.toFixed(1)} ${circ.toFixed(1)}`}
-        transform="rotate(-90 30 30)" strokeLinecap="butt" opacity="0.7" />
-      <circle cx="30" cy="30" r={r} fill="none" stroke="#3b82f6" strokeWidth="7"
+        transform="rotate(-90 27 27)" strokeLinecap="butt" opacity="0.65" />
+      <circle cx="27" cy="27" r={r} fill="none" stroke="#3b82f6" strokeWidth="6"
         strokeDasharray={`${cashLen.toFixed(1)} ${circ.toFixed(1)}`}
         strokeDashoffset={(-invLen).toFixed(1)}
-        transform="rotate(-90 30 30)" strokeLinecap="butt" />
+        transform="rotate(-90 27 27)" strokeLinecap="butt" />
+    </svg>
+  )
+}
+
+// ─── Mini donut (KPI strip) ───────────────────────────────────────────────────
+
+function MiniDonut({ cashPct }: { cashPct: number }) {
+  const r = 15, circ = 2 * Math.PI * r
+  const invLen  = ((100 - cashPct) / 100) * circ
+  const cashLen = (cashPct / 100) * circ
+  return (
+    <svg width="38" height="38" viewBox="0 0 38 38" style={{ flexShrink: 0 }}>
+      <circle cx="19" cy="19" r={r} fill="none" stroke="#1a1a1a" strokeWidth="5" />
+      <circle cx="19" cy="19" r={r} fill="none" stroke="#00ff87" strokeWidth="5"
+        strokeDasharray={`${invLen.toFixed(1)} ${circ.toFixed(1)}`}
+        transform="rotate(-90 19 19)" strokeLinecap="butt" opacity="0.6" />
+      <circle cx="19" cy="19" r={r} fill="none" stroke="#3b82f6" strokeWidth="5"
+        strokeDasharray={`${cashLen.toFixed(1)} ${circ.toFixed(1)}`}
+        strokeDashoffset={(-invLen).toFixed(1)}
+        transform="rotate(-90 19 19)" strokeLinecap="butt" />
     </svg>
   )
 }
@@ -232,12 +199,12 @@ function Card({ children, className, style }: {
       onMouseLeave={() => setHov(false)}
       style={{
         background: '#0e0e0e',
-        border: `1px solid ${hov ? '#2e2e2e' : '#1e1e1e'}`,
+        border: `1px solid ${hov ? '#2a2a2a' : '#1a1a1a'}`,
         borderRadius: 16,
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
-        transition: 'border-color 0.12s',
+        transition: 'border-color 0.15s',
         ...style,
       }}
     >
@@ -246,90 +213,125 @@ function Card({ children, className, style }: {
   )
 }
 
-// ─── CARD 1 — FEAR & GREED (CNN style) ───────────────────────────────────────
+// ─── CARD 1 — FEAR & GREED ────────────────────────────────────────────────────
 
 function FearGreedCard({ fearGreed, loaded }: {
   fearGreed: number | null
   loaded: boolean
 }) {
-  const [fetchedAt, setFetchedAt] = useState<Date | null>(null)
-  useEffect(() => { if (loaded && fearGreed != null) setFetchedAt(new Date()) }, [loaded, fearGreed])
-
   const zone = fearGreed != null ? fgZone(fearGreed) : null
 
   return (
-    <Card className="card-animate-2" style={{ flex: 1 }}>
-      <div style={{ padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+    <Card className="card-animate-2" style={{ alignSelf: 'stretch' }}>
+      <div style={{ padding: '12px 2px 8px', flex: 1, display: 'flex', flexDirection: 'column' }}>
 
-        <p style={{ fontFamily: MONO, fontSize: 10, color: '#444', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 14 }}>
-          Fear &amp; Greed
-        </p>
+        {/* Title + source on one line — minimal padding to maximise gauge */}
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4, padding: '0 10px' }}>
+          <p style={{ fontFamily: SANS, fontSize: 12, color: '#ccc', fontWeight: 600 }}>
+            Fear &amp; Greed
+          </p>
+          <p style={{ fontFamily: SANS, fontSize: 9, color: '#444', fontWeight: 500 }}>
+            CNN · live
+          </p>
+        </div>
 
+        {/* Gauge area */}
         {!loaded ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: MONO, fontSize: 12, color: '#333' }}>loading…</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: '#333' }}>loading…</span>
           </div>
         ) : fearGreed == null ? (
-          <span style={{ fontFamily: SANS, fontSize: 13, color: '#444' }}>Unavailable</span>
-        ) : (
-          <div style={{ width: '100%', maxWidth: 220 }}>
-            <FGGauge value={fearGreed} color={zone!.color} />
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontFamily: SANS, fontSize: 13, color: '#444' }}>Unavailable</span>
           </div>
+        ) : (
+          <>
+            <div style={{ flex: 1 }}>
+              <FGGauge value={fearGreed} color={zone!.color} />
+            </div>
+            {/* Value + zone — rendered in HTML for clear separation below needle base */}
+            <div style={{ textAlign: 'center', paddingTop: 4, paddingBottom: 2 }}>
+              <div style={{
+                fontFamily: BEBAS, fontSize: 40, color: zone!.color,
+                lineHeight: 1, letterSpacing: '0.02em',
+              }}>
+                {Math.round(fearGreed)}
+              </div>
+              <div style={{
+                fontFamily: SANS, fontSize: 10, fontWeight: 600,
+                color: zone!.color, letterSpacing: '0.04em', marginTop: 1,
+              }}>
+                {zone!.label}
+              </div>
+            </div>
+          </>
         )}
 
-        <p style={{ fontFamily: MONO, fontSize: 9, color: '#2a2a2a', marginTop: 10, letterSpacing: '0.08em' }}>
-          CNN · <span style={{ color: '#444' }}>live</span>
-        </p>
       </div>
     </Card>
   )
 }
 
-// ─── CARD 2 — VIX ────────────────────────────────────────────────────────────
+// ─── CARD 2 — VIX (compact) ───────────────────────────────────────────────────
 
-function VixCard({ vix }: { vix: number | null }) {
+function VixCard({ vix, vixChange, vixChangePct }: {
+  vix: number | null
+  vixChange: number | null
+  vixChangePct: number | null
+}) {
   const info = vix != null ? vixZone(vix) : null
+  const chgPos   = (vixChange ?? 0) >= 0
+  const chgColor = chgPos ? '#00ff87' : '#ff5a5a'
 
   return (
-    <Card className="card-animate-1" style={{ flex: 1 }}>
-      <div style={{ padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 0 }}>
+    <Card className="card-animate-1" style={{ alignSelf: 'stretch' }}>
+      <div style={{ padding: '20px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
 
-        <p style={{ fontFamily: MONO, fontSize: 10, color: '#444', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 18 }}>
-          Volatility Index
-        </p>
-
-        {/* Heartbeat circle */}
-        <div style={{
-          width: 68, height: 68, borderRadius: '50%',
-          border: '1.5px solid #3b82f6',
-          background: 'rgba(59,130,246,0.06)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginBottom: 16,
-        }}>
-          <svg width="38" height="22" viewBox="0 0 44 26" fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="1,13 9,13 13,2 19,24 25,13 31,13 35,8 39,13 43,13" />
-          </svg>
+        {/* VIX as the primary instrument label */}
+        <div style={{ marginBottom: 6 }}>
+          <p style={{ fontFamily: BEBAS, fontSize: 22, color: '#d4d4d4', letterSpacing: '0.06em', lineHeight: 1, marginBottom: 6 }}>
+            VIX
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <svg width="20" height="10" viewBox="0 0 44 26" fill="none"
+              stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.55}>
+              <polyline points="1,13 9,13 13,2 19,24 25,13 31,13 35,8 39,13 43,13" />
+            </svg>
+            <span style={{ fontFamily: SANS, fontSize: 10, color: '#4a4a4a', fontWeight: 500 }}>
+              Volatility Index
+            </span>
+          </div>
         </div>
 
-        <p style={{ fontFamily: BEBAS, fontSize: 28, color: '#666', letterSpacing: '0.08em', lineHeight: 1, marginBottom: 10 }}>
-          VIX
-        </p>
+        {/* Spacer pushes value to lower half */}
+        <div style={{ flex: 1 }} />
 
+        {/* Hero value */}
         {vix != null ? (
           <>
-            <div style={{ fontFamily: BEBAS, fontSize: 56, color: '#ffffff', letterSpacing: '0.02em', lineHeight: 1, marginBottom: 12 }}>
+            <div style={{ fontFamily: BEBAS, fontSize: 60, color: '#ffffff', letterSpacing: '0.01em', lineHeight: 0.88, marginBottom: 6 }}>
               {vix.toFixed(1)}
             </div>
+            {vixChange != null && vixChangePct != null && (
+              <div style={{
+                fontFamily: MONO, fontSize: 11, fontWeight: 500,
+                color: chgColor, marginBottom: 10,
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                {chgPos ? '▲' : '▼'} {chgPos ? '+' : ''}{vixChange.toFixed(1)} ({chgPos ? '+' : ''}{vixChangePct.toFixed(1)}%)
+              </div>
+            )}
             <span style={{
-              fontFamily: MONO, fontSize: 11, fontWeight: 700,
+              fontFamily: SANS, fontSize: 10, fontWeight: 700,
               color: info!.color, background: info!.bg,
-              padding: '3px 12px', borderRadius: 20, letterSpacing: '0.08em',
+              padding: '3px 10px', borderRadius: 20, letterSpacing: '0.04em',
+              textTransform: 'uppercase', alignSelf: 'flex-start',
             }}>
               {info!.label}
             </span>
           </>
         ) : (
-          <div style={{ fontFamily: BEBAS, fontSize: 52, color: '#2a2a2a' }}>—</div>
+          <div style={{ fontFamily: BEBAS, fontSize: 60, color: '#2a2a2a' }}>—</div>
         )}
 
       </div>
@@ -337,18 +339,24 @@ function VixCard({ vix }: { vix: number | null }) {
   )
 }
 
-// ─── CARD 3 — PORTFOLIO VALUE ─────────────────────────────────────────────────
+// ─── CARD 3 — PORTFOLIO VALUE (hero) ─────────────────────────────────────────
 
-function PortfolioValueCard({ totalValue, cashPct, todayPnL, todayPnLPct, loading, hasPrices, formatAmount, currency, exposureData }: {
-  totalValue:   number
-  cashPct:      number
-  todayPnL:     number
-  todayPnLPct:  number
-  loading:      boolean
-  hasPrices:    boolean
-  formatAmount: (n: number, d?: number) => string
-  currency:     'USD' | 'ILS'
-  exposureData: { label: string; pct: number; color: string }[]
+function PortfolioValueCard({
+  totalValue, investedValue,
+  cashPct, todayPnL, todayPnLPct,
+  loading, hasPrices, formatAmount, currency, exposureData, holdingsCount,
+}: {
+  totalValue:    number
+  investedValue: number
+  cashPct:       number
+  todayPnL:      number
+  todayPnLPct:   number
+  loading:       boolean
+  hasPrices:     boolean
+  formatAmount:  (n: number, d?: number) => string
+  currency:      'USD' | 'ILS'
+  exposureData:  { label: string; pct: number; color: string }[]
+  holdingsCount: number
 }) {
   const hasPnL   = hasPrices && Math.abs(todayPnL) > 0
   const pnlPos   = todayPnL >= 0
@@ -357,96 +365,144 @@ function PortfolioValueCard({ totalValue, cashPct, todayPnL, todayPnLPct, loadin
   const countTotal = useCountUp(Math.round(totalValue))
 
   return (
-    <Card className="card-animate-0" style={{ flex: 1 }}>
-      <div style={{ padding: '24px', flex: 1, display: 'flex', gap: 24 }}>
+    <Card className="card-animate-0">
+      {/* Vertical flex: main content row + KPI strip */}
+      <div style={{ padding: '28px 32px 0', flex: 1, display: 'flex', flexDirection: 'column' }}>
 
-        {/* ── Left: core metrics ── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        {/* ── Main row: left + right side by side ── */}
+        <div style={{ display: 'flex', gap: 0, flex: 1, paddingBottom: 22 }}>
 
-          <p style={{ fontFamily: MONO, fontSize: 10, color: '#444', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 10 }}>
-            Portfolio Value
-          </p>
+          {/* Left: core metrics */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
-          {/* Hero + P&L */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
-            <div style={{ fontFamily: BEBAS, fontSize: 56, color: loading ? '#2a2a2a' : '#ffffff', letterSpacing: '0.01em', lineHeight: 0.92 }}>
-              {loading ? '—' : formatAmount(countTotal)}
-            </div>
-            {hasPnL && (
-              <div style={{ textAlign: 'right', paddingBottom: 6, flexShrink: 0 }}>
-                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 600, color: pnlColor, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
-                  {pnlSign}{formatAmount(Math.abs(todayPnL))}
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: 12, color: pnlColor, opacity: 0.8, fontVariantNumeric: 'tabular-nums' }}>
-                  ({pnlSign}{todayPnLPct.toFixed(2)}%)
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: '#444', letterSpacing: '0.10em', marginTop: 4, textTransform: 'uppercase' }}>
-                  Today
-                </div>
+            <p style={{ fontFamily: SANS, fontSize: 13, color: '#888', letterSpacing: '-0.01em', marginBottom: 14, fontWeight: 600 }}>
+              Portfolio Value
+            </p>
+
+            {/* Hero value + P&L */}
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 6 }}>
+              <div style={{
+                fontFamily: BEBAS, fontSize: 64, color: loading ? '#2a2a2a' : '#ffffff',
+                letterSpacing: '0.01em', lineHeight: 0.88,
+              }}>
+                {loading ? '—' : formatAmount(countTotal)}
               </div>
-            )}
+              {hasPnL && (
+                <div style={{ textAlign: 'right', paddingBottom: 6, flexShrink: 0 }}>
+                  <div style={{ fontFamily: SANS, fontSize: 20, fontWeight: 700, color: pnlColor, fontVariantNumeric: 'tabular-nums', lineHeight: 1.15 }}>
+                    {pnlSign}{formatAmount(Math.abs(todayPnL))}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 13, color: pnlColor, fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>
+                    ({pnlSign}{todayPnLPct.toFixed(2)}%)
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 11, color: '#666', marginTop: 5 }}>
+                    Today
+                  </div>
+                </div>
+              )}
+            </div>
+
           </div>
 
-          <div style={{ height: 1, background: '#1e1e1e', margin: '14px 0' }} />
-
-          {/* Cash row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Right: exposure panel */}
+          {exposureData.length > 0 && (
             <div style={{
-              width: 36, height: 36, borderRadius: 8,
-              background: '#141414', border: '1px solid #242424',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              width: 200, flexShrink: 0,
+              borderLeft: '1px solid #191919',
+              marginLeft: 32, paddingLeft: 28,
+              display: 'flex', flexDirection: 'column',
             }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8" strokeLinecap="round">
-                <rect x="2" y="7" width="20" height="14" rx="2" />
-                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-              </svg>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: MONO, fontSize: 9, color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 1 }}>Cash</div>
-              <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 700, color: '#e0e0e0', fontVariantNumeric: 'tabular-nums' }}>
-                {formatAmount(totalValue * cashPct / 100)}
+              <p style={{ fontFamily: SANS, fontSize: 12, color: '#888', letterSpacing: 'normal', marginBottom: 16, fontWeight: 600 }}>
+                Exposure
+              </p>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0 }}>
+                {exposureData.map((item, i) => (
+                  <div
+                    key={item.label}
+                    style={{
+                      paddingTop: 9, paddingBottom: 9,
+                      borderBottom: i < exposureData.length - 1 ? '1px solid #141414' : 'none',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
+                        <span style={{ fontFamily: SANS, fontSize: 13, color: '#999' }}>{item.label}</span>
+                      </div>
+                      <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 500, color: '#e8e8e8', fontVariantNumeric: 'tabular-nums' }}>
+                        {item.pct.toFixed(1)}%
+                      </span>
+                    </div>
+                    {/* Allocation bar */}
+                    <div style={{ height: 4, background: '#1a1a1a', borderRadius: 2, overflow: 'hidden', marginTop: 2 }}>
+                      <div style={{
+                        width: `${Math.min(100, item.pct)}%`, height: '100%',
+                        background: item.color, borderRadius: 2, opacity: 0.75,
+                      }} />
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontFamily: BEBAS, fontSize: 26, color: '#3b82f6', lineHeight: 1 }}>
-                {cashPct.toFixed(1)}%
-              </div>
-              <div style={{ fontFamily: MONO, fontSize: 9, color: '#333', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                Of portfolio
-              </div>
-            </div>
-            <CashDonut cashPct={cashPct} />
-          </div>
+          )}
+
         </div>
 
-        {/* ── Right: exposure panel ── */}
-        {exposureData.length > 0 && (
-          <div style={{ width: 190, flexShrink: 0, borderLeft: '1px solid #1e1e1e', paddingLeft: 24, display: 'flex', flexDirection: 'column' }}>
-            <p style={{ fontFamily: MONO, fontSize: 10, color: '#444', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 12 }}>
-              Exposure
-            </p>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 0 }}>
-              {exposureData.map((item, i) => (
-                <div
-                  key={item.label}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '7px 0',
-                    borderBottom: i < exposureData.length - 1 ? '1px solid #161616' : 'none',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
-                    <span style={{ fontFamily: SANS, fontSize: 12, color: '#777' }}>{item.label}</span>
-                  </div>
-                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: '#e0e0e0', fontVariantNumeric: 'tabular-nums' }}>
-                    {item.pct.toFixed(1)}%
-                  </span>
-                </div>
-              ))}
+        {/* ── 4-metric KPI strip ── */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          borderTop: '1px solid #191919',
+          paddingTop: 18,
+          paddingBottom: 24,
+        }}>
+
+          {/* 1 — Cash (with donut) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingRight: 16 }}>
+            <MiniDonut cashPct={cashPct} />
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: '#555', fontWeight: 500, marginBottom: 4 }}>Cash</div>
+              <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 700, color: '#e8e8e8', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+                {formatAmount(totalValue * cashPct / 100)}
+              </div>
+              <div style={{ fontFamily: BEBAS, fontSize: 17, color: '#3b82f6', lineHeight: 1, marginTop: 2 }}>
+                {cashPct.toFixed(1)}%
+              </div>
             </div>
           </div>
-        )}
+
+          {/* 2 — Holdings */}
+          <div style={{ borderLeft: '1px solid #1a1a1a', padding: '0 16px' }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: '#555', fontWeight: 500, marginBottom: 4 }}>Holdings</div>
+            <div style={{ fontFamily: BEBAS, fontSize: 36, color: '#e8e8e8', lineHeight: 0.9, marginBottom: 4 }}>
+              {holdingsCount}
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 11, color: '#555', fontWeight: 500 }}>positions</div>
+          </div>
+
+          {/* 3 — Deployed (current market value of holdings, from live prices) */}
+          <div style={{ borderLeft: '1px solid #1a1a1a', padding: '0 16px' }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: '#555', fontWeight: 500, marginBottom: 4 }}>Invested</div>
+            <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 700, color: '#e8e8e8', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+              {hasPrices ? formatAmount(investedValue) : '—'}
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 11, color: '#555', fontWeight: 500, marginTop: 2 }}>
+              {hasPrices ? `${(100 - cashPct).toFixed(1)}% deployed` : 'awaiting prices'}
+            </div>
+          </div>
+
+          {/* 4 — Daily P&L (from live price feed, same source as hero) */}
+          <div style={{ borderLeft: '1px solid #1a1a1a', padding: '0 16px' }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: '#555', fontWeight: 500, marginBottom: 4 }}>Today</div>
+            <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 700, color: pnlColor, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+              {hasPnL ? `${pnlSign}${formatAmount(Math.abs(todayPnL))}` : '—'}
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: pnlColor, fontWeight: 500, marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+              {hasPnL ? `${pnlSign}${todayPnLPct.toFixed(2)}%` : 'market closed'}
+            </div>
+          </div>
+
+        </div>
 
       </div>
     </Card>
@@ -456,45 +512,46 @@ function PortfolioValueCard({ totalValue, cashPct, todayPnL, todayPnLPct, loadin
 // ─── MARKET CONNECTION BAR ────────────────────────────────────────────────────
 
 function MarketConnectionBar({ fearGreed, vix }: { fearGreed: number | null; vix: number | null }) {
-  const sentence = marketSentence(fearGreed, vix)
-  const pill     = connectionStatus(fearGreed, vix)
+  const status = marketStatus(fearGreed, vix)
+  const pill   = connectionStatus(fearGreed, vix)
 
   return (
     <div style={{
       background: '#090909',
-      borderTop: '1px solid #1e1e1e', borderBottom: '1px solid #1e1e1e',
-      height: 44, display: 'flex', alignItems: 'center', padding: '0 32px',
+      borderTop: '1px solid #191919', borderBottom: '1px solid #191919',
+      minHeight: 58, display: 'flex', alignItems: 'center', padding: '10px 36px',
       position: 'relative', overflow: 'hidden',
     }}>
-      {/* Scanline */}
       <div aria-hidden style={{
         position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
-        backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.13) 3px, rgba(0,0,0,0.13) 4px)',
+        backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.12) 3px, rgba(0,0,0,0.12) 4px)',
       }} />
 
-      {/* Chain icon + label */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0, zIndex: 1 }}>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00e5cc" strokeWidth="2.5" strokeLinecap="round">
-          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+      {/* Signal icon */}
+      <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, zIndex: 1, marginRight: 18 }}>
+        <svg width="14" height="11" viewBox="0 0 44 28" fill="none" stroke="#00e5cc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="1,14 10,14 14,3 20,25 26,14 32,14 36,7 40,14 43,14" />
         </svg>
-        <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, color: '#00e5cc', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
-          Market Connection
-        </span>
       </div>
 
-      <div style={{ width: 1, height: 16, background: '#1e1e1e', margin: '0 20px', flexShrink: 0, zIndex: 1 }} />
+      {/* Two-line insight — direction rtl for correct Hebrew rendering */}
+      <div style={{ flex: 1, zIndex: 1, minWidth: 0, direction: 'rtl', textAlign: 'right' }}>
+        <p style={{ fontFamily: SANS, fontSize: 14, color: '#f0f0f0', fontWeight: 700, lineHeight: 1.2, margin: 0 }}>
+          {status.headline}
+        </p>
+        <p style={{ fontFamily: SANS, fontSize: 12, color: '#999', fontWeight: 400, lineHeight: 1.4, margin: '4px 0 0' }}>
+          {status.detail}
+        </p>
+      </div>
 
-      <p style={{ fontFamily: SANS, fontSize: 12, color: '#555', flex: 1, zIndex: 1, lineHeight: 1 }}>
-        {sentence}
-      </p>
-
-      <div style={{ zIndex: 1, flexShrink: 0, marginLeft: 20 }}>
+      {/* Status pill */}
+      <div style={{ zIndex: 1, flexShrink: 0, marginLeft: 24 }}>
         <span style={{
-          fontFamily: MONO, fontSize: 10, fontWeight: 700,
+          fontFamily: SANS, fontSize: 12, fontWeight: 700,
           color: pill.color, background: pill.bg,
-          padding: '4px 14px', borderRadius: 20, letterSpacing: '0.08em',
-          border: `1px solid ${pill.color}33`,
+          padding: '6px 16px', borderRadius: 20, letterSpacing: '0.02em',
+          border: `1px solid ${pill.color}55`,
+          whiteSpace: 'nowrap',
         }}>
           {pill.label}
         </span>
@@ -508,7 +565,8 @@ function MarketConnectionBar({ fearGreed, vix }: { fearGreed: number | null; vix
 interface MacroState { fearGreed: number | null; loaded: boolean }
 
 export function DashboardSummary({
-  vix, totalValue, investedValue, cashPct, todayPnL, todayPnLPct,
+  vix, vixChange, vixChangePct,
+  totalValue, investedValue, cashPct, todayPnL, todayPnLPct,
   loading, hasPrices, formatAmount, currency,
   criticalAlerts, warningAlerts, totalAlerts, holdingsCount,
   lastSync, minCashPct, maxCashPct, exposureData,
@@ -524,17 +582,19 @@ export function DashboardSummary({
 
   return (
     <div>
-      {/* 3-card row */}
+      {/* 3-card grid: portfolio hero (1fr) + VIX + F&G (fixed 185px each) */}
       <div style={{
         maxWidth: 1380,
         margin: '0 auto',
-        padding: '28px 36px 24px',
+        padding: '20px 36px 16px',
         display: 'grid',
-        gridTemplateColumns: '3fr 1fr 1fr',
-        gap: 20,
+        gridTemplateColumns: '1fr 168px 168px',
+        gap: 14,
+        alignItems: 'stretch',
       }}>
         <PortfolioValueCard
           totalValue={totalValue}
+          investedValue={investedValue}
           cashPct={cashPct}
           todayPnL={todayPnL}
           todayPnLPct={todayPnLPct}
@@ -543,8 +603,9 @@ export function DashboardSummary({
           formatAmount={formatAmount}
           currency={currency}
           exposureData={exposureData}
+          holdingsCount={holdingsCount}
         />
-        <VixCard vix={vix} />
+        <VixCard vix={vix} vixChange={vixChange} vixChangePct={vixChangePct} />
         <FearGreedCard
           fearGreed={macro.fearGreed}
           loaded={macro.loaded}

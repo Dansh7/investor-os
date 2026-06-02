@@ -4,7 +4,7 @@ import { useState } from 'react'
 import type { NewsItem } from './NewsIntelligence'
 
 export interface ThesisHolding {
-  id: number
+  id: string
   ticker: string
   company_name: string
   thesis?: string | null
