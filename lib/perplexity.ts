@@ -88,3 +88,78 @@ export async function searchNews(
     usage: { promptTokens, completionTokens, estimatedCostUsd },
   }
 }
+
+export async function fetchEarnings(
+  ticker: string,
+  companyName: string
+): Promise<PerplexityResult> {
+  const apiKey = process.env.PERPLEXITY_API_KEY
+  if (!apiKey) {
+    return { summary: '', sources: [], raw: '', error: 'PERPLEXITY_API_KEY not set' }
+  }
+
+  const query =
+    `Latest earnings report for ${ticker} (${companyName}). ` +
+    `Return: report date, revenue actual vs estimate, EPS actual vs estimate, ` +
+    `gross margin, guidance next quarter, stock reaction % on earnings day, ` +
+    `and 3 key sentences from the investor call. Be specific with numbers.`
+
+  let res: Response
+  try {
+    res = await fetch(`${PERPLEXITY_BASE}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [{ role: 'user', content: query }],
+        return_citations: true,
+        return_images: false,
+      }),
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return { summary: '', sources: [], raw: '', error: msg }
+  }
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText)
+    return { summary: '', sources: [], raw: text, error: `HTTP ${res.status}` }
+  }
+
+  let json: {
+    choices: { message: { content: string } }[]
+    citations?: string[]
+    usage?: { prompt_tokens: number; completion_tokens: number }
+  }
+
+  try {
+    json = await res.json()
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'JSON parse error'
+    return { summary: '', sources: [], raw: '', error: msg }
+  }
+
+  const summary = json.choices?.[0]?.message?.content ?? ''
+  const sources = json.citations ?? []
+  const promptTokens     = json.usage?.prompt_tokens     ?? 0
+  const completionTokens = json.usage?.completion_tokens ?? 0
+  const estimatedCostUsd =
+    (promptTokens     / 1_000_000) * COST_PER_M_INPUT  +
+    (completionTokens / 1_000_000) * COST_PER_M_OUTPUT +
+    COST_PER_SEARCH
+
+  console.log(
+    `[perplexity/earnings] ${ticker} — in:${promptTokens} out:${completionTokens} ` +
+    `sources:${sources.length} est:$${estimatedCostUsd.toFixed(5)}`
+  )
+
+  return {
+    summary,
+    sources,
+    raw: JSON.stringify(json, null, 2),
+    usage: { promptTokens, completionTokens, estimatedCostUsd },
+  }
+}

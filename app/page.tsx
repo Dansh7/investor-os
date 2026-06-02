@@ -18,6 +18,8 @@ import { UpcomingEvents, type CalendarEvent } from './components/UpcomingEvents'
 import { ThesisMonitor, type ThesisHolding } from './components/ThesisMonitor'
 import { WatchlistPanel, type WatchlistItem } from './components/WatchlistPanel'
 import { PolicyWidget, type PolicyRule, type PolicyObjective } from './components/PolicyWidget'
+import { NewsIntelligencePanel, type IntelItem } from './components/NewsIntelligencePanel'
+import { EarningsPanel, type EarningsCard } from './components/EarningsPanel'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -159,10 +161,11 @@ function XIcon({ size = 14 }: { size?: number }) {
 
 type SortCol = 'weight' | 'day' | 'day_dollar' | 'pnl' | 'pnl_dollar' | 'value' | 'ath' | 'ytd' | 'conviction'
 
-type Tab = 'intelligence' | 'thesis' | 'risk' | 'events' | 'watchlist' | 'policy'
+type Tab = 'intelligence' | 'earnings' | 'thesis' | 'risk' | 'events' | 'watchlist' | 'policy'
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'intelligence',  label: 'אינטליגנציה' },
+  { id: 'intelligence',  label: 'ידיעות' },
+  { id: 'earnings',      label: 'רווחים' },
   { id: 'thesis',        label: 'תזה' },
   { id: 'risk',          label: 'סיכון והחלטות' },
   { id: 'events',        label: 'אירועים' },
@@ -245,6 +248,11 @@ export default function Dashboard() {
   const [editDraft, setEditDraft] = useState({ qty: '', avgCost: '' })
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
+  const [intelItems, setIntelItems] = useState<IntelItem[]>([])
+  const [intelLoading, setIntelLoading] = useState(false)
+  const [earningsCards, setEarningsCards] = useState<EarningsCard[]>([])
+  const [earningsLoading, setEarningsLoading] = useState(false)
+  const earningsFetchedRef = useRef(false)
   const [currency, setCurrency] = useState<'USD' | 'ILS'>('USD')
   const [cash, setCash] = useState(38_000)
   const [editingCash, setEditingCash] = useState(false)
@@ -264,7 +272,8 @@ export default function Dashboard() {
   const [objectives, setObjectives] = useState<PolicyObjective[]>([])
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
 
-  const holdingsRef = useRef<Holding[]>([])
+  const holdingsRef          = useRef<Holding[]>([])
+  const moverTriggeredRef    = useRef(false)
 
   useEffect(() => {
     if (localStorage.getItem('currency') === 'ILS') setCurrency('ILS')
@@ -325,6 +334,123 @@ export default function Dashboard() {
 
   useEffect(() => { fetchHoldings() }, [fetchHoldings])
   useEffect(() => { fetchIntelligence() }, [fetchIntelligence])
+
+  const fetchNewsIntel = useCallback(async (morning = false, changes?: Record<string, number>) => {
+    setIntelLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (morning) params.set('morning', '1')
+      if (changes && Object.keys(changes).length > 0) {
+        params.set('changes', Object.entries(changes).map(([t, p]) => `${t}:${p.toFixed(2)}`).join(','))
+      }
+      const qs  = params.toString()
+      const res = await fetch(`/api/news/all${qs ? `?${qs}` : ''}`)
+      if (res.ok) setIntelItems(await res.json())
+    } catch { /* silent */ } finally { setIntelLoading(false) }
+  }, [])
+
+  // Earnings: fetch for holdings that had earnings in the last 90 days
+  // "Reported" = past earnings event exists; if only future events → skip
+  const fetchEarningsData = useCallback(async (force = false) => {
+    if (!force && earningsFetchedRef.current) return
+    earningsFetchedRef.current = true
+    setEarningsLoading(true)
+
+    const now      = Date.now()
+    const ago90    = now - 90 * 86_400_000
+    const eligible = holdings.filter(h => {
+      const hasReported = events.some(
+        ev => ev.ticker === h.ticker &&
+              (ev as { event_type?: string }).event_type === 'earnings' &&
+              new Date((ev as { scheduled_at: string }).scheduled_at).getTime() < now &&
+              new Date((ev as { scheduled_at: string }).scheduled_at).getTime() > ago90
+      )
+      return hasReported
+    })
+
+    if (eligible.length === 0) {
+      setEarningsLoading(false)
+      return
+    }
+
+    // Seed cards with loading placeholders
+    setEarningsCards(eligible.map(h => ({
+      ticker: h.ticker, company_name: h.company_name,
+      quarter: '', date: '',
+      revenue: { actual: null, estimate: null, beat: null },
+      eps:     { actual: null, estimate: null, beat: null },
+      gross_margin_pct: null, stock_reaction_pct: null,
+      guidance_next_quarter: null,
+      thesis_impact: 'neutral' as const,
+      hebrew_summary: '', hebrew_call_highlights: [],
+      loading: true,
+    })))
+
+    const results = await Promise.allSettled(
+      eligible.map(async h => {
+        const res = await fetch(`/api/earnings/${h.ticker}?company=${encodeURIComponent(h.company_name)}`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return { ...(await res.json()) as EarningsCard, ticker: h.ticker, company_name: h.company_name }
+      })
+    )
+
+    setEarningsCards(results.map((r, i) => {
+      if (r.status === 'fulfilled') return r.value
+      return {
+        ticker: eligible[i].ticker, company_name: eligible[i].company_name,
+        quarter: '', date: '',
+        revenue: { actual: null, estimate: null, beat: null },
+        eps:     { actual: null, estimate: null, beat: null },
+        gross_margin_pct: null, stock_reaction_pct: null,
+        guidance_next_quarter: null,
+        thesis_impact: 'neutral' as const,
+        hebrew_summary: '', hebrew_call_highlights: [],
+        error: String(r.reason),
+      }
+    }))
+    setEarningsLoading(false)
+  }, [holdings, events])
+
+  // Morning auto-run: first page load of the day triggers the intelligence pipeline
+  useEffect(() => {
+    const key = 'last_intel_run'
+    const today = new Date().toISOString().split('T')[0]
+    const last  = typeof window !== 'undefined' ? localStorage.getItem(key) : null
+    if (last !== today) {
+      if (typeof window !== 'undefined') localStorage.setItem(key, today)
+      fetchNewsIntel(true)
+    }
+  }, [fetchNewsIntel])
+
+  // Lazy-load earnings when user opens the tab
+  useEffect(() => {
+    if (activeTab === 'earnings' && holdings.length > 0) {
+      fetchEarningsData()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab])
+
+  // Mover auto-trigger: after prices load, refresh intel for any ticker that moved > 2%
+  // Only fires once per session; skips if morning scan already ran this load
+  useEffect(() => {
+    if (moverTriggeredRef.current) return
+    if (Object.keys(prices).length === 0 || holdings.length === 0) return
+
+    const movers: Record<string, number> = {}
+    for (const h of holdings) {
+      const cp = prices[h.ticker]?.change_percent
+      if (cp != null && Math.abs(cp) > 2) movers[h.ticker] = cp
+    }
+    if (Object.keys(movers).length === 0) return
+
+    // Only trigger if the morning scan for today has already completed
+    const today = new Date().toISOString().split('T')[0]
+    const lastRun = typeof window !== 'undefined' ? localStorage.getItem('last_intel_run') : null
+    if (lastRun !== today) return  // morning scan hasn't fired yet — it will cover movers
+
+    moverTriggeredRef.current = true
+    fetchNewsIntel(false, movers)
+  }, [prices, holdings, fetchNewsIntel])
 
   const tickerKey = holdings.map(h => h.ticker).sort().join(',')
   useEffect(() => {
@@ -1069,7 +1195,21 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* 3. Critical Today — full width feed below holdings */}
+        {/* 3. AI Intelligence Panel */}
+        <NewsIntelligencePanel
+          items={intelItems}
+          loading={intelLoading}
+          onRefresh={() => {
+            const changes: Record<string, number> = {}
+            for (const h of holdings) {
+              const cp = prices[h.ticker]?.change_percent
+              if (cp != null) changes[h.ticker] = cp
+            }
+            fetchNewsIntel(true, changes)
+          }}
+        />
+
+        {/* 4. Critical Today — full width feed below holdings */}
         <AttentionQueue alerts={alerts} newsItems={newsItems} />
 
         {/* 4. Tabs */}
@@ -1102,6 +1242,13 @@ export default function Dashboard() {
           {/* Tab content */}
           {activeTab === 'intelligence' && (
             <NewsIntelligence items={newsItems} />
+          )}
+          {activeTab === 'earnings' && (
+            <EarningsPanel
+              cards={earningsCards}
+              loading={earningsLoading}
+              onRefresh={() => fetchEarningsData(true)}
+            />
           )}
           {activeTab === 'thesis' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
