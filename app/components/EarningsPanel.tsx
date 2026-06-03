@@ -72,18 +72,13 @@ function useCountUp(target: number | null, dur = 900): number {
 
 // ─── Donut chart ──────────────────────────────────────────────────────────────
 
-function Donut({ pct, color, size = 88, stroke = 9 }: { pct: number; color: string; size?: number; stroke?: number }) {
-  const r = (size - stroke) / 2
-  const c = 2 * Math.PI * r
-  const dash = Math.min(pct / 100, 0.95) * c
+function Donut({ pct, color, size = 80 }: { pct: number; color: string; size?: number }) {
+  const clamped = Math.min(Math.max(Math.round(pct), 1), 99)
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#1c1c1c" strokeWidth={stroke} />
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
-        strokeDasharray={`${dash} ${c}`} strokeLinecap="round"
-        style={{ transition: 'stroke-dasharray 900ms cubic-bezier(0.16,1,0.3,1)' }}
-      />
-    </svg>
+    <div style={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      background: `conic-gradient(${color} 0% ${clamped}%, #1a1a1a ${clamped}% 100%)`,
+    }} />
   )
 }
 
@@ -110,13 +105,10 @@ function MetricCard({ label, rawValue, fmtFn, sub, beat, verified, donutPct, don
         <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: '#666', letterSpacing: '0.02em' }}>{label}</span>
         <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 42, color: '#fff', lineHeight: 1, letterSpacing: '1px' }}>{display}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {verified && beat != null && (
+          {beat != null && (
             <span style={{ fontSize: 12, color: beat ? '#00e5b3' : '#ff4d6d', fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
               {beat ? '↑ עמד בציפיות' : '↓ מתחת לציפיות'}
             </span>
-          )}
-          {!verified && beat == null && (
-            <span style={{ fontSize: 12, color: '#555', fontFamily: "'DM Sans', sans-serif" }}>ללא צפי</span>
           )}
         </div>
         <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: '#555' }}>{sub}</span>

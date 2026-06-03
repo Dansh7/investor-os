@@ -69,7 +69,7 @@ const PARSE_TOOL: Anthropic.Messages.Tool = {
       },
       guidance_next_quarter: {
         type: 'string',
-        description: 'Company guidance for next quarter (revenue or EPS range). Null if not available.',
+        description: 'Company guidance for next quarter translated to Hebrew. Include revenue range and any notable adjustments (e.g. export controls). Keep under 100 characters. Null if not available.',
       },
       thesis_impact: {
         type: 'string',
