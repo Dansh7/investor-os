@@ -1,8 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { createClient } from '@supabase/supabase-js'
 import type { IntelItem } from './NewsIntelligencePanel'
 import type { NewsItem } from './NewsIntelligence'
+
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
+
+interface NewsRow {
+  id: string
+  ticker: string | null
+  hebrew_title: string | null
+  summary: string | null
+  source: string | null
+  published_at: string | null
+  thesis_impact: string | null
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -314,8 +332,32 @@ function TopMoversCard({ sortedRows }: { sortedRows: HoldingRow[] }) {
 
 // ─── Market News card ─────────────────────────────────────────────────────────
 
-function MarketNewsCard({ newsItems }: { newsItems: NewsItem[] }) {
-  const items = newsItems.slice(0, 3)
+function MarketNewsCard() {
+  const [items, setItems] = useState<NewsRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getSupabase()
+      .from('news_items')
+      .select('id, ticker, hebrew_title, summary, source, published_at, thesis_impact')
+      .in('action_type', ['immediate', 'daily'])
+      .order('published_at', { ascending: false })
+      .limit(3)
+      .then(({ data }) => {
+        setItems(data ?? [])
+        setLoading(false)
+      })
+  }, [])
+
+  const headline = (n: NewsRow) => {
+    if (n.hebrew_title?.trim()) return n.hebrew_title.trim()
+    if (n.summary?.trim()) return n.summary.trim().slice(0, 60)
+    return n.ticker ? `עדכון ${n.ticker}` : 'עדכון SEC'
+  }
+
+  const accentColor = (impact: string | null) =>
+    impact === 'breaking' ? '#ff4d6d' : impact === 'weakening' ? '#ffaa00' : '#00d4a8'
+
   return (
     <div style={{ background: '#111118', border: '1px solid #1a1a28', borderRadius: 14, padding: '22px 24px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -326,33 +368,41 @@ function MarketNewsCard({ newsItems }: { newsItems: NewsItem[] }) {
         <button style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 12, color: '#00d4a8', background: 'none', border: 'none', cursor: 'pointer' }}>View All</button>
       </div>
 
-      {items.length === 0 ? (
-        <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 13, color: '#333', textAlign: 'center', padding: '16px 0' }}>No news items</div>
+      {loading ? (
+        <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 13, color: '#333', textAlign: 'center', padding: '16px 0' }}>טוען…</div>
+      ) : items.length === 0 ? (
+        <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 13, color: '#333', textAlign: 'center', padding: '16px 0' }}>אין ידיעות</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {items.map(n => (
-            <div key={n.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              {/* Color dot based on thesis/sentiment */}
-              <div style={{
-                width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-                background: n.thesis_impact === 'breaking' ? '#ff4d6d18' : n.thesis_impact === 'weakening' ? '#ffaa0018' : '#00d4a818',
-                border: `1px solid ${n.thesis_impact === 'breaking' ? '#ff4d6d30' : n.thesis_impact === 'weakening' ? '#ffaa0030' : '#00d4a830'}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: 9, fontWeight: 700, color: n.thesis_impact === 'breaking' ? '#ff4d6d' : n.thesis_impact === 'weakening' ? '#ffaa00' : '#00d4a8' }}>
-                  {n.ticker?.slice(0, 4) ?? 'MKT'}
-                </span>
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 13, color: '#ccc', lineHeight: 1.4, marginBottom: 4, direction: 'rtl', textAlign: 'right', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' } as React.CSSProperties}>
-                  {n.hebrew_title ?? (n.ticker ? `עדכון ${n.ticker}` : 'עדכון SEC')}
+          {items.map(n => {
+            const color = accentColor(n.thesis_impact)
+            return (
+              <div key={n.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                  background: `${color}18`, border: `1px solid ${color}30`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: 9, fontWeight: 700, color }}>
+                    {n.ticker?.slice(0, 4) ?? 'MKT'}
+                  </span>
                 </div>
-                <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 11, color: '#444' }}>
-                  {n.source ?? 'Unknown'} · {n.published_at ? timeAgo(n.published_at) : ''}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 13, color: '#ccc',
+                    lineHeight: 1.4, marginBottom: 4, direction: 'rtl', textAlign: 'right',
+                    display: '-webkit-box', WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical' as const, overflow: 'hidden',
+                  } as React.CSSProperties}>
+                    {headline(n)}
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 11, color: '#444' }}>
+                    {n.source ?? 'Unknown'} · {n.published_at ? timeAgo(n.published_at) : ''}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
@@ -378,7 +428,7 @@ export function OverviewSection(props: Props) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
         <AISummaryCard intelItems={intelItems} newsItems={newsItems} />
         <TopMoversCard sortedRows={sortedRows} />
-        <MarketNewsCard newsItems={newsItems} />
+        <MarketNewsCard />
       </div>
     </div>
   )
