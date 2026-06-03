@@ -103,9 +103,9 @@ function getClient(): Anthropic {
   return _client
 }
 
-/** Parse a raw value to number, returning null for NaN/null/undefined */
+/** Parse a raw value to number, returning null for NaN/null/undefined/"null" */
 function safeNum(v: number | string | null | undefined): number | null {
-  if (v == null) return null
+  if (v == null || v === 'null' || v === '') return null
   const n = Number(v)
   return isNaN(n) ? null : n
 }

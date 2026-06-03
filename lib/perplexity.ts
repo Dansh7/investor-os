@@ -99,12 +99,16 @@ export async function fetchEarnings(
   }
 
   const query =
-    `For ${ticker} (${companyName}) most recent earnings report: ` +
-    `Find revenue actual vs analyst consensus estimate, EPS actual vs analyst consensus estimate. ` +
-    `IMPORTANT: Cross-reference minimum 3 separate sources (e.g. SEC filing + CNBC/Bloomberg + Seeking Alpha/MarketWatch). ` +
-    `If fewer than 3 sources found, explicitly state that. ` +
-    `Also include: gross margin, stock reaction on earnings day %, guidance next quarter. ` +
-    `Cite all sources with URLs.`
+    `${companyName} (${ticker}) most recent quarterly earnings results. ` +
+    `Find: ` +
+    `- Exact report date ` +
+    `- Revenue: actual amount and Wall Street consensus estimate ` +
+    `- EPS: actual and consensus estimate ` +
+    `- Gross margin ` +
+    `- Stock price reaction on earnings day (%) ` +
+    `- One sentence guidance for next quarter ` +
+    `- 3 key points from the investor call ` +
+    `Sources required: cite at least 3 URLs from SEC EDGAR, CNBC, Reuters, MarketWatch, or Yahoo Finance.`
 
   let res: Response
   try {
@@ -144,8 +148,13 @@ export async function fetchEarnings(
     return { summary: '', sources: [], raw: '', error: msg }
   }
 
-  const summary = json.choices?.[0]?.message?.content ?? ''
-  const sources = json.citations ?? []
+  const summary  = json.choices?.[0]?.message?.content ?? ''
+  // Prefer the dedicated citations field; fall back to URLs extracted from the text
+  const citationsField: string[] = json.citations ?? []
+  const urlsInText = citationsField.length === 0
+    ? [...new Set((summary.match(/https?:\/\/[^\s\)\]]+/g) ?? []))]
+    : []
+  const sources  = citationsField.length > 0 ? citationsField : urlsInText
   const promptTokens     = json.usage?.prompt_tokens     ?? 0
   const completionTokens = json.usage?.completion_tokens ?? 0
   const estimatedCostUsd =
@@ -155,7 +164,7 @@ export async function fetchEarnings(
 
   console.log(
     `[perplexity/earnings] ${ticker} — in:${promptTokens} out:${completionTokens} ` +
-    `sources:${sources.length} est:$${estimatedCostUsd.toFixed(5)}`
+    `citations:${citationsField.length} url_fallback:${urlsInText.length} est:$${estimatedCostUsd.toFixed(5)}`
   )
 
   return {

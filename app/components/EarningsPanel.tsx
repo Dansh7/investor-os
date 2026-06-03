@@ -19,7 +19,7 @@ interface Props {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function safeNum(v: unknown): number | null {
-  if (v == null) return null
+  if (v == null || v === 'null' || v === '') return null
   const n = Number(v)
   return isNaN(n) ? null : n
 }
