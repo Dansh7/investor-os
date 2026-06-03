@@ -20,7 +20,7 @@ interface Props {
 
 function fmt(n: number | null | undefined, decimals = 2): string {
   if (n == null) return '—'
-  return n % 1 === 0 ? n.toFixed(0) : n.toFixed(decimals)
+  return n % 1 === 0 ? Number(n).toFixed(0) : Number(n).toFixed(decimals)
 }
 
 function fmtRevenue(b: number | null | undefined): string {
