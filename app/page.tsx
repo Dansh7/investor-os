@@ -39,6 +39,8 @@ interface Holding {
   conviction_score?: number | null
   target_allocation_pct?: number | null
   max_allocation_pct?: number | null
+  last_earnings_date?: string | null
+  next_earnings_date?: string | null
 }
 
 interface PriceData {
@@ -304,7 +306,7 @@ export default function Dashboard() {
     setLoading(true)
     const { data, error } = await supabase
       .from('holdings')
-      .select('id, ticker, company_name, shares, avg_buy_price, category, thesis, thesis_status, thesis_break_conditions, conviction_score, target_allocation_pct, max_allocation_pct')
+      .select('id, ticker, company_name, shares, avg_buy_price, category, thesis, thesis_status, thesis_break_conditions, conviction_score, target_allocation_pct, max_allocation_pct, last_earnings_date, next_earnings_date')
       .eq('portfolio_id', 1)
     if (error) setFetchError(error.message)
     else { setFetchError(null); setHoldings(data ?? []); holdingsRef.current = data ?? [] }
@@ -356,16 +358,21 @@ export default function Dashboard() {
     earningsFetchedRef.current = true
     setEarningsLoading(true)
 
-    const now      = Date.now()
-    const ago90    = now - 90 * 86_400_000
+    const now   = Date.now()
+    const ago90 = now - 90 * 86_400_000
+    const in90  = now + 90 * 86_400_000
     const eligible = holdings.filter(h => {
-      const hasReported = events.some(
-        ev => ev.ticker === h.ticker &&
-              (ev as { event_type?: string }).event_type === 'earnings' &&
-              new Date((ev as { scheduled_at: string }).scheduled_at).getTime() < now &&
-              new Date((ev as { scheduled_at: string }).scheduled_at).getTime() > ago90
-      )
-      return hasReported
+      // last_earnings_date within last 90 days
+      if (h.last_earnings_date) {
+        const t = new Date(h.last_earnings_date).getTime()
+        if (t > ago90 && t <= now) return true
+      }
+      // next_earnings_date within next 90 days
+      if (h.next_earnings_date) {
+        const t = new Date(h.next_earnings_date).getTime()
+        if (t > now && t < in90) return true
+      }
+      return false
     })
 
     if (eligible.length === 0) {
