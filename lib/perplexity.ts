@@ -99,10 +99,11 @@ export async function fetchEarnings(
   }
 
   const query =
-    `Latest earnings report for ${ticker} (${companyName}). ` +
-    `Return: report date, revenue actual vs estimate, EPS actual vs estimate, ` +
-    `gross margin, guidance next quarter, stock reaction % on earnings day, ` +
-    `and 3 key sentences from the investor call. Be specific with numbers.`
+    `Most recent earnings report for ${ticker} (${companyName}). ` +
+    `State the exact report date. Cross-reference minimum 2 sources. ` +
+    `Include: revenue actual vs estimate, EPS actual vs estimate, gross margin, ` +
+    `stock reaction on earnings day %, guidance next quarter. ` +
+    `Cite all sources with URLs.`
 
   let res: Response
   try {

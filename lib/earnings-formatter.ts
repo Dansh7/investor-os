@@ -24,6 +24,7 @@ export interface EarningsResult {
   thesis_impact:        'supporting' | 'weakening' | 'neutral'
   hebrew_summary:       string
   hebrew_call_highlights: string[]
+  sources:              string[]
   error?: string
   usage?: { inputTokens: number; outputTokens: number; estimatedCostUsd: number }
 }
@@ -102,6 +103,13 @@ function getClient(): Anthropic {
   return _client
 }
 
+/** Parse a raw value to number, returning null for NaN/null/undefined */
+function safeNum(v: number | string | null | undefined): number | null {
+  if (v == null) return null
+  const n = Number(v)
+  return isNaN(n) ? null : n
+}
+
 const EMPTY: EarningsResult = {
   quarter: '', date: '',
   revenue: { actual: null, estimate: null, beat: null },
@@ -110,6 +118,7 @@ const EMPTY: EarningsResult = {
   guidance_next_quarter: null,
   thesis_impact: 'neutral',
   hebrew_summary: '', hebrew_call_highlights: [],
+  sources: [],
 }
 
 export async function formatEarnings(
@@ -117,8 +126,9 @@ export async function formatEarnings(
   companyName: string,
   result: PerplexityResult
 ): Promise<EarningsResult> {
+  const sources = result.sources ?? []
   if (result.error || !result.summary) {
-    return { ...EMPTY, error: result.error ?? 'empty Perplexity result' }
+    return { ...EMPTY, sources, error: result.error ?? 'empty Perplexity result' }
   }
 
   const prompt = `You are parsing an earnings report for ${ticker} (${companyName}) and translating key points to Hebrew for an Israeli investor.
@@ -151,10 +161,10 @@ Extract all available numbers and translate the investor call highlights to Hebr
     }
     const inp = block.input as ToolInput
 
-    const revActual  = inp.revenue_actual_b  ?? null
-    const revEst     = inp.revenue_estimate_b ?? null
-    const epsActual  = inp.eps_actual  ?? null
-    const epsEst     = inp.eps_estimate ?? null
+    const revActual  = safeNum(inp.revenue_actual_b)
+    const revEst     = safeNum(inp.revenue_estimate_b)
+    const epsActual  = safeNum(inp.eps_actual)
+    const epsEst     = safeNum(inp.eps_estimate)
 
     const THESIS = ['supporting', 'weakening', 'neutral'] as const
     const thesis = THESIS.includes(inp.thesis_impact as never)
@@ -185,12 +195,13 @@ Extract all available numbers and translate the investor call highlights to Hebr
         estimate: epsEst,
         beat:     epsActual != null && epsEst != null ? epsActual >= epsEst : null,
       },
-      gross_margin_pct:     inp.gross_margin_pct ?? null,
-      stock_reaction_pct:   inp.stock_reaction_pct ?? null,
+      gross_margin_pct:     safeNum(inp.gross_margin_pct),
+      stock_reaction_pct:   safeNum(inp.stock_reaction_pct),
       guidance_next_quarter: inp.guidance_next_quarter ?? null,
       thesis_impact:        thesis,
       hebrew_summary:       (inp.hebrew_summary ?? '').slice(0, 400),
       hebrew_call_highlights: (inp.hebrew_call_highlights ?? []).slice(0, 3).map(b => b.slice(0, 120)),
+      sources,
       usage: { inputTokens, outputTokens, estimatedCostUsd },
     }
   } catch (err) {

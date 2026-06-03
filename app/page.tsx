@@ -390,6 +390,7 @@ export default function Dashboard() {
       guidance_next_quarter: null,
       thesis_impact: 'neutral' as const,
       hebrew_summary: '', hebrew_call_highlights: [],
+      sources: [],
       loading: true,
     })))
 
@@ -412,6 +413,7 @@ export default function Dashboard() {
         guidance_next_quarter: null,
         thesis_impact: 'neutral' as const,
         hebrew_summary: '', hebrew_call_highlights: [],
+        sources: [],
         error: String(r.reason),
       }
     }))
