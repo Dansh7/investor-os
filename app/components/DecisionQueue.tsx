@@ -1,6 +1,7 @@
 'use client'
 
 import { AlertRow } from './RiskMonitor'
+import type { IntelItem } from './NewsIntelligencePanel'
 
 interface HoldingMeta {
   ticker: string
@@ -13,24 +14,26 @@ interface HoldingMeta {
 }
 
 interface Props {
-  holdings: HoldingMeta[]
-  alerts: AlertRow[]
+  holdings:   HoldingMeta[]
+  alerts:     AlertRow[]
+  intelItems?: IntelItem[]
 }
 
 type Priority = 'urgent' | 'high' | 'medium'
 
 interface RawIssue {
-  ticker: string
-  priority: Priority
-  label: string
-  reason: string
+  ticker:      string
+  priority:    Priority
+  label:       string
+  reason:      string
+  triggered_at?: string | null
 }
 
 interface ClusteredItem {
-  key: string
-  ticker: string
-  priority: Priority
-  issues: RawIssue[]
+  key:        string
+  ticker:     string
+  priority:   Priority
+  issues:     RawIssue[]
 }
 
 const PRIORITY_ORDER: Record<Priority, number> = { urgent: 0, high: 1, medium: 2 }
@@ -53,6 +56,16 @@ const ISSUE_DOT_COLOR: Record<Priority, string> = {
   medium: '#60a5fa',
 }
 
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return ''
+  try {
+    const d = new Date(iso)
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    return `${dd}.${mm}.${d.getFullYear()}`
+  } catch { return '' }
+}
+
 function collectIssues(holdings: HoldingMeta[], alerts: AlertRow[]): RawIssue[] {
   const issues: RawIssue[] = []
 
@@ -60,9 +73,9 @@ function collectIssues(holdings: HoldingMeta[], alerts: AlertRow[]): RawIssue[] 
     if (a.alert_status !== 'active' || !a.ticker) continue
     const p = a.priority ?? 0
     if (p >= 8) {
-      issues.push({ ticker: a.ticker, priority: 'urgent', label: 'Critical alert', reason: (a.title ?? a.message ?? '').slice(0, 80) })
+      issues.push({ ticker: a.ticker, priority: 'urgent', label: 'Critical alert', reason: (a.title ?? a.message ?? '').slice(0, 100), triggered_at: a.triggered_at })
     } else if (p >= 5) {
-      issues.push({ ticker: a.ticker, priority: 'high', label: 'Warning alert', reason: (a.title ?? a.message ?? '').slice(0, 80) })
+      issues.push({ ticker: a.ticker, priority: 'high', label: 'Warning alert', reason: (a.title ?? a.message ?? '').slice(0, 100), triggered_at: a.triggered_at })
     }
   }
 
@@ -87,7 +100,15 @@ function collectIssues(holdings: HoldingMeta[], alerts: AlertRow[]): RawIssue[] 
   return issues
 }
 
-export function DecisionQueue({ holdings, alerts }: Props) {
+export function DecisionQueue({ holdings, alerts, intelItems = [] }: Props) {
+  // Build a map of ticker → hebrew_title from the AI intelligence panel
+  const hebrewByTicker = new Map<string, string>()
+  for (const item of intelItems) {
+    if (item.scored?.hebrew_title && !hebrewByTicker.has(item.ticker)) {
+      hebrewByTicker.set(item.ticker, item.scored.hebrew_title)
+    }
+  }
+
   const rawIssues = collectIssues(holdings, alerts)
 
   const tickerMap = new Map<string, RawIssue[]>()
@@ -121,40 +142,58 @@ export function DecisionQueue({ holdings, alerts }: Props) {
         <p className="px-5 py-8 text-center text-sm" style={{ color: '#555' }}>No decisions required right now</p>
       ) : (
         <div>
-          {sortedItems.map((item, idx) => (
-            <div
-              key={item.key}
-              className="px-4 py-3"
-              style={{
-                borderLeft: `3px solid ${PRIORITY_BORDER[item.priority]}`,
-                borderBottom: idx < sortedItems.length - 1 ? '1px solid #1a1a1a' : 'none',
-              }}
-            >
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="font-mono text-xs font-bold text-white tracking-tight">{item.ticker}</span>
-                <span className="text-xs font-medium px-1.5 py-0.5 rounded" style={PRIORITY_BADGE[item.priority]}>
-                  {item.priority}
-                </span>
-                {item.issues.length > 1 && (
-                  <span className="text-xs" style={{ color: '#555' }}>{item.issues.length} issues</span>
+          {sortedItems.map((item, idx) => {
+            const hebrewTitle = hebrewByTicker.get(item.ticker)
+            return (
+              <div
+                key={item.key}
+                className="px-4 py-3"
+                style={{
+                  borderLeft: `3px solid ${PRIORITY_BORDER[item.priority]}`,
+                  borderBottom: idx < sortedItems.length - 1 ? '1px solid #1a1a1a' : 'none',
+                }}
+              >
+                {/* Header: ticker + priority badge + triggered date */}
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="font-mono text-xs font-bold text-white tracking-tight">{item.ticker}</span>
+                  <span className="text-xs font-medium px-1.5 py-0.5 rounded" style={PRIORITY_BADGE[item.priority]}>
+                    {item.priority}
+                  </span>
+                  {item.issues.length > 1 && (
+                    <span className="text-xs" style={{ color: '#555' }}>{item.issues.length} issues</span>
+                  )}
+                  {/* Date from the first alert issue that has triggered_at */}
+                  {(() => {
+                    const date = item.issues.find(i => i.triggered_at)?.triggered_at
+                    const d = fmtDate(date)
+                    return d ? <span style={{ fontSize: 11, color: '#3A3A3A', marginRight: 'auto' }}>{d}</span> : null
+                  })()}
+                </div>
+
+                {/* Hebrew title from IntelItem if available, otherwise show issues */}
+                {hebrewTitle && (
+                  <p style={{ fontSize: 13, color: '#CCCCCC', margin: '0 0 6px', lineHeight: 1.4, direction: 'rtl', textAlign: 'right' }}>
+                    {hebrewTitle}
+                  </p>
                 )}
+
+                <ul className="space-y-1">
+                  {item.issues.map((issue, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span
+                        className="shrink-0 mt-1.5 rounded-full"
+                        style={{ width: 5, height: 5, background: ISSUE_DOT_COLOR[issue.priority], display: 'inline-block' }}
+                      />
+                      <span className="text-xs" style={{ color: '#9a9a9a' }}>
+                        <span className="font-medium text-white">{issue.label}:</span>{' '}
+                        {issue.reason}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul className="space-y-1">
-                {item.issues.map((issue, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span
-                      className="shrink-0 mt-1.5 rounded-full"
-                      style={{ width: 5, height: 5, background: ISSUE_DOT_COLOR[issue.priority], display: 'inline-block' }}
-                    />
-                    <span className="text-xs" style={{ color: '#9a9a9a' }}>
-                      <span className="font-medium text-white">{issue.label}:</span>{' '}
-                      {issue.reason}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

@@ -1268,7 +1268,7 @@ export default function Dashboard() {
           {activeTab === 'risk' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               <RiskMonitor alerts={alerts} onStatusChange={updateAlertStatus} />
-              <DecisionQueue holdings={holdingsWithWeights} alerts={alerts} />
+              <DecisionQueue holdings={holdingsWithWeights} alerts={alerts} intelItems={intelItems} />
             </div>
           )}
           {activeTab === 'events' && (

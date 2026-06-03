@@ -66,7 +66,8 @@ export async function GET(req: NextRequest) {
         scored:       result.scored,
         perplexity:   { summary: result.perplexity.summary, sources: result.perplexity.sources },
         validation,
-        routing: result.gateBlocked ? 'ignore' : validation.routing,
+        routing:     result.gateBlocked ? 'ignore' : validation.routing,
+        fetched_at:  new Date().toISOString(),
       }
     })
   )

@@ -132,6 +132,7 @@ function EarningCard({ card }: { card: EarningsCard }) {
   const thesis   = THESIS_META[card.thesis_impact] ?? THESIS_META.neutral
   const warnings = getWarnings(card)
   const sources  = card.sources ?? []
+  const reactionN = safeNum(card.stock_reaction_pct)
 
   if (card.loading) {
     return (
@@ -160,8 +161,6 @@ function EarningCard({ card }: { card: EarningsCard }) {
     )
   }
 
-  const reactionN = safeNum(card.stock_reaction_pct)
-
   return (
     <div style={{
       background: '#111111',
@@ -172,93 +171,129 @@ function EarningCard({ card }: { card: EarningsCard }) {
       direction: 'rtl',
     }}>
 
-      {/* ── Header: ticker | quarter | date ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+      {/* ── Top row: ticker | quarter | date | warnings ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <span style={{
-          fontFamily: 'monospace', fontWeight: 700, fontSize: 13,
+          fontFamily: 'monospace', fontWeight: 700, fontSize: 12,
           color: thesis.color,
           background: `${thesis.color}18`,
           border: `1px solid ${thesis.color}33`,
-          padding: '2px 8px', borderRadius: 4,
+          padding: '2px 9px', borderRadius: 99,
         }}>
           {card.ticker}
         </span>
         <span style={{ color: '#888', fontSize: 13, fontWeight: 500 }}>{card.quarter}</span>
-        <span style={{ color: '#444', fontSize: 12 }}>|</span>
         <span style={{ color: '#555', fontSize: 12 }}>{fmtDate(card.date)}</span>
+
+        {/* Warnings — small amber badges, non-blocking */}
         {warnings.map((w, i) => (
           <span key={i} style={{
-            fontSize: 11, color: '#F5A623',
-            background: 'rgba(245,166,35,0.08)',
-            padding: '1px 6px', borderRadius: 3,
+            fontSize: 11, fontWeight: 600,
+            color: '#F5A623', background: 'rgba(245,166,35,0.08)',
+            border: '1px solid rgba(245,166,35,0.18)',
+            padding: '1px 6px', borderRadius: 99, marginRight: 'auto',
           }}>
             {w.label}
           </span>
         ))}
-        {card.cacheHit && (
+        {card.cacheHit && !warnings.length && (
           <span style={{ fontSize: 10, color: '#2A2A2A', marginRight: 'auto' }}>מטמון</span>
         )}
       </div>
 
-      <Divider />
-
-      {/* ── Metrics ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        <MetricRow
-          label="הכנסות:"
-          actual={fmtRevenue(card.revenue.actual)}
-          estimate={card.revenue.estimate != null ? fmtRevenue(card.revenue.estimate) : null}
-          beat={card.revenue.estimate != null ? card.revenue.beat : null}
-        />
-        <MetricRow
-          label="EPS:"
-          actual={fmt(card.eps.actual)}
-          estimate={card.eps.estimate != null ? fmt(card.eps.estimate) : null}
-          beat={card.eps.estimate != null ? card.eps.beat : null}
-          prefix="$"
-        />
-        {card.gross_margin_pct != null && (
-          <MetricRow label="מרווח:" actual={fmt(card.gross_margin_pct, 1)} suffix="%" />
-        )}
-        {reactionN != null && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-            <span style={{ color: '#666' }}>תגובת שוק:</span>
-            <span style={{
-              fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-              color: reactionN >= 0 ? '#00DC82' : '#FF5A5A',
-            }}>
-              {reactionN >= 0 ? '+' : ''}{reactionN.toFixed(1)}%
+      {/* ── Metrics: 3-column grid ── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '8px 16px',
+        marginBottom: 12,
+        padding: '12px 14px',
+        background: '#0C0C0C',
+        borderRadius: 8,
+        border: '1px solid #1A1A1A',
+      }}>
+        {/* הכנסות */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span style={{ fontSize: 11, color: '#555' }}>הכנסות</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#E0E0E0', fontVariantNumeric: 'tabular-nums' }}>
+              {fmtRevenue(card.revenue.actual)}
             </span>
-          </div>
-        )}
-        {card.guidance_next_quarter && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, gap: 8 }}>
-            <span style={{ color: '#666', flexShrink: 0 }}>הנחיה הרבעון הבא:</span>
-            <span style={{ color: '#888', textAlign: 'left', direction: 'ltr' }}>{card.guidance_next_quarter}</span>
-          </div>
-        )}
+            {card.revenue.estimate != null && (
+              <span style={{ fontSize: 13 }}>{card.revenue.beat ? '✅' : '❌'}</span>
+            )}
+          </span>
+          {card.revenue.estimate != null && (
+            <span style={{ fontSize: 11, color: '#444' }}>צפי {fmtRevenue(card.revenue.estimate)}</span>
+          )}
+        </div>
+
+        {/* EPS */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span style={{ fontSize: 11, color: '#555' }}>EPS</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#E0E0E0', fontVariantNumeric: 'tabular-nums' }}>
+              ${fmt(card.eps.actual)}
+            </span>
+            {card.eps.estimate != null && (
+              <span style={{ fontSize: 13 }}>{card.eps.beat ? '✅' : '❌'}</span>
+            )}
+          </span>
+          {card.eps.estimate != null && (
+            <span style={{ fontSize: 11, color: '#444' }}>צפי ${fmt(card.eps.estimate)}</span>
+          )}
+        </div>
+
+        {/* מרווח + תגובת שוק */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {card.gross_margin_pct != null && (
+            <>
+              <span style={{ fontSize: 11, color: '#555' }}>מרווח גולמי</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#E0E0E0', fontVariantNumeric: 'tabular-nums' }}>
+                {fmt(card.gross_margin_pct, 1)}%
+              </span>
+            </>
+          )}
+          {reactionN != null && (
+            <span style={{ fontSize: 12, color: reactionN >= 0 ? '#00DC82' : '#FF5A5A', fontWeight: 600, marginTop: card.gross_margin_pct != null ? 2 : 0 }}>
+              תגובה: {reactionN >= 0 ? '+' : ''}{reactionN.toFixed(1)}%
+            </span>
+          )}
+        </div>
       </div>
 
+      {/* ── Guidance ── */}
+      {card.guidance_next_quarter && (
+        <>
+          <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>תחזית הרבעון הבא:</div>
+          <div style={{ fontSize: 13, color: '#888', marginBottom: 12, direction: 'ltr', textAlign: 'left' }}>
+            {card.guidance_next_quarter}
+          </div>
+        </>
+      )}
+
       <Divider />
 
-      {/* ── Hebrew summary ── */}
+      {/* ── Hebrew summary — 2 lines max ── */}
       {card.hebrew_summary && (
         <p style={{
-          fontSize: 13, color: '#AAAAAA', lineHeight: 1.65,
-          margin: '0 0 10px', textAlign: 'right',
+          fontSize: 14, color: '#AAAAAA', lineHeight: 1.6,
+          margin: '0 0 12px', textAlign: 'right',
+          display: '-webkit-box', WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>
           {card.hebrew_summary}
         </p>
       )}
 
-      {/* ── Investor call highlights ── */}
+      {/* ── Investor call bullets ── */}
       {card.hebrew_call_highlights.length > 0 && (
-        <div style={{ marginBottom: 4 }}>
+        <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 12, color: '#555', marginBottom: 5 }}>שיחת משקיעים:</div>
           <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
             {card.hebrew_call_highlights.map((b, i) => (
               <li key={i} style={{ fontSize: 13, color: '#B0B0B0', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                <span style={{ color: '#444', flexShrink: 0 }}>-</span>
+                <span style={{ color: '#3A3A3A', flexShrink: 0 }}>-</span>
                 <span>{b}</span>
               </li>
             ))}
@@ -268,33 +303,30 @@ function EarningCard({ card }: { card: EarningsCard }) {
 
       <Divider />
 
-      {/* ── Thesis + sources ── */}
+      {/* ── Thesis pill (bottom right) + sources ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 12, color: '#555' }}>תזה:</span>
-          <span style={{
-            fontSize: 12, fontWeight: 600,
-            color: thesis.color, background: thesis.bg,
-            padding: '2px 8px', borderRadius: 4,
-          }}>
-            {thesis.label}
-          </span>
-        </div>
-
         {sources.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-start' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {sources.slice(0, 3).map((s, i) => (
               <a
                 key={i} href={s} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: 11, color: '#3A3A3A', textDecoration: 'none' }}
+                style={{ fontSize: 11, color: '#333', textDecoration: 'none' }}
                 onMouseEnter={e => (e.currentTarget.style.color = '#666')}
-                onMouseLeave={e => (e.currentTarget.style.color = '#3A3A3A')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#333')}
               >
                 {sourceDomain(s)}
               </a>
             ))}
           </div>
         )}
+        <span style={{
+          fontSize: 12, fontWeight: 600,
+          color: thesis.color, background: thesis.bg,
+          padding: '3px 10px', borderRadius: 99,
+          marginRight: sources.length ? 0 : 'auto',
+        }}>
+          תזה: {thesis.label}
+        </span>
       </div>
 
     </div>

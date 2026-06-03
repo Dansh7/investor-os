@@ -10,6 +10,7 @@ export interface IntelItem {
   routing:      'immediate' | 'daily' | 'weekly' | 'ignore'
   cacheHit:     boolean
   gateBlocked:  boolean
+  fetched_at?:  string
   scored: {
     importance_score:       number
     portfolio_impact_score: number
@@ -56,6 +57,16 @@ function sourceDomain(url: string): string {
   try { return new URL(url).hostname.replace('www.', '') } catch { return url.slice(0, 30) }
 }
 
+function fmtDate(iso: string | undefined): string {
+  if (!iso) return ''
+  try {
+    const d = new Date(iso)
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    return `${dd}.${mm}.${d.getFullYear()}`
+  } catch { return '' }
+}
+
 function RefreshIcon({ spinning }: { spinning: boolean }) {
   return (
     <svg
@@ -71,71 +82,89 @@ function RefreshIcon({ spinning }: { spinning: boolean }) {
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
 
-function NewsCard({ item }: { item: IntelItem }) {
+function NewsCard({ item, isLast }: { item: IntelItem; isLast?: boolean }) {
   const { scored, perplexity, validation } = item
   if (!scored) return null
 
   const thesisColor  = THESIS_COLOR[scored.thesis_impact] ?? '#383838'
   const hasWarning   = validation.confidence_override || validation.flags.length > 0
   const importance   = validation.importance_score ?? scored.importance_score
+  const dateStr      = fmtDate(item.fetched_at)
 
   return (
     <div style={{
-      background: '#111111',
-      border: '1px solid #1C1C1C',
-      borderLeft: `3px solid ${thesisColor}`,
-      borderRadius: 10,
-      padding: '14px 16px',
+      padding: '16px 0',
+      borderBottom: isLast ? 'none' : '1px solid #1E1E1E',
       direction: 'rtl',
     }}>
-      {/* Header row: ticker badge + title */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
-        <span style={{
-          flexShrink: 0,
-          fontFamily: 'monospace', fontWeight: 700, fontSize: 12,
-          color: thesisColor,
-          background: `${thesisColor}18`,
-          border: `1px solid ${thesisColor}44`,
-          padding: '2px 7px', borderRadius: 4,
-          letterSpacing: '0.04em',
-        }}>
-          {item.ticker}
-        </span>
-        <span style={{ fontWeight: 700, fontSize: 15, color: '#E8E8E8', lineHeight: 1.35 }}>
-          {scored.hebrew_title || '—'}
-        </span>
+      {/* Row 1: ticker pill + warning + date */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Ticker pill colored by thesis */}
+          <span style={{
+            fontFamily: 'monospace', fontWeight: 700, fontSize: 11,
+            color: thesisColor,
+            background: `${thesisColor}1A`,
+            border: `1px solid ${thesisColor}44`,
+            padding: '2px 9px', borderRadius: 99,
+            letterSpacing: '0.04em',
+          }}>
+            {item.ticker}
+          </span>
+
+          {/* Warning badge — amber, next to ticker */}
+          {hasWarning && (
+            <span style={{
+              fontSize: 11, fontWeight: 600,
+              color: '#F5A623',
+              background: 'rgba(245,166,35,0.10)',
+              border: '1px solid rgba(245,166,35,0.20)',
+              padding: '1px 7px', borderRadius: 99,
+            }}>
+              ⚠ {validation.hebrew_warning ?? `${validation.flags.length} דגל`}
+            </span>
+          )}
+        </div>
+
+        {/* Date — top right */}
+        {dateStr && (
+          <span style={{ fontSize: 11, color: '#444', flexShrink: 0 }}>{dateStr}</span>
+        )}
       </div>
 
-      {/* Hebrew summary */}
+      {/* Row 2: Hebrew title */}
+      <p style={{ fontWeight: 700, fontSize: 14, color: '#E8E8E8', lineHeight: 1.4, margin: '0 0 8px' }}>
+        {scored.hebrew_title || '—'}
+      </p>
+
+      {/* Row 3: Hebrew summary */}
       {scored.hebrew_summary && (
         <p style={{
           fontSize: 14, color: '#AAAAAA', lineHeight: 1.6, margin: '0 0 10px',
-          direction: 'rtl', textAlign: 'right',
+          textAlign: 'right',
         }}>
           {scored.hebrew_summary}
         </p>
       )}
 
-      {/* Footer: scores + sources + warning */}
+      {/* Row 4: scores + sources + cache */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-        {/* Score badges */}
         <span style={{ fontSize: 11, color: '#666', fontVariantNumeric: 'tabular-nums' }}>
-          <span style={{ color: '#888' }}>חשיבות </span>
+          <span style={{ color: '#555' }}>חשיבות </span>
           <span style={{ color: '#CFCFCF', fontWeight: 600 }}>{importance}</span>
-          <span style={{ color: '#444', margin: '0 4px' }}>·</span>
-          <span style={{ color: '#888' }}>השפעה </span>
+          <span style={{ color: '#333', margin: '0 4px' }}>·</span>
+          <span style={{ color: '#555' }}>השפעה </span>
           <span style={{ color: '#CFCFCF', fontWeight: 600 }}>{scored.portfolio_impact_score}</span>
         </span>
 
-        {/* Source links */}
         {perplexity?.sources && perplexity.sources.length > 0 && (
           <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {perplexity.sources.slice(0, 3).map((s, i) => (
               <a
                 key={i} href={s} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: 11, color: '#555', textDecoration: 'none' }}
-                onMouseEnter={e => (e.currentTarget.style.color = '#888')}
-                onMouseLeave={e => (e.currentTarget.style.color = '#555')}
+                style={{ fontSize: 11, color: '#444', textDecoration: 'none' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#777')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#444')}
               >
                 {sourceDomain(s)}
               </a>
@@ -143,21 +172,8 @@ function NewsCard({ item }: { item: IntelItem }) {
           </span>
         )}
 
-        {/* Warning flag */}
-        {hasWarning && (
-          <span style={{
-            fontSize: 11, color: '#F5A623',
-            background: 'rgba(245,166,35,0.08)',
-            padding: '1px 6px', borderRadius: 3,
-            display: 'flex', alignItems: 'center', gap: 3,
-          }}>
-            ⚠ {validation.hebrew_warning ?? `${validation.flags.length} דגל`}
-          </span>
-        )}
-
-        {/* Cache indicator */}
         {item.cacheHit && (
-          <span style={{ fontSize: 10, color: '#333', marginRight: 'auto' }}>מטמון</span>
+          <span style={{ fontSize: 10, color: '#2A2A2A', marginRight: 'auto' }}>מטמון</span>
         )}
       </div>
     </div>
@@ -219,11 +235,7 @@ export function NewsIntelligencePanel({ items, loading, onRefresh }: Props) {
       </div>
 
       {/* ── Tabs ── */}
-      <div style={{
-        display: 'flex',
-        borderBottom: '1px solid #161616',
-        direction: 'rtl',
-      }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #161616', direction: 'rtl' }}>
         {tabs.map(tab => {
           const count = byRoute[tab].length
           return (
@@ -245,7 +257,7 @@ export function NewsIntelligencePanel({ items, loading, onRefresh }: Props) {
                 <span style={{
                   fontSize: 11, fontWeight: 600,
                   color: activeTab === tab ? '#E0E0E0' : '#383838',
-                  background: activeTab === tab ? 'rgba(255,255,255,0.1)' : '#1a1a1a',
+                  background: activeTab === tab ? 'rgba(255,255,255,0.10)' : '#1a1a1a',
                   padding: '1px 6px', borderRadius: 10,
                 }}>
                   {count}
@@ -257,7 +269,7 @@ export function NewsIntelligencePanel({ items, loading, onRefresh }: Props) {
       </div>
 
       {/* ── Content ── */}
-      <div style={{ padding: '16px 20px', direction: 'rtl' }}>
+      <div style={{ padding: '4px 22px 16px', direction: 'rtl' }}>
         {loading ? (
           <div style={{ textAlign: 'center', padding: '28px 0', color: '#333', fontSize: 14 }}>
             טוען עדכונים…
@@ -267,13 +279,12 @@ export function NewsIntelligencePanel({ items, loading, onRefresh }: Props) {
             אין עדכונים רלוונטיים כרגע
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {active.map(item => <NewsCard key={item.ticker} item={item} />)}
-          </div>
+          active.map((item, idx) => (
+            <NewsCard key={item.ticker} item={item} isLast={idx === active.length - 1} />
+          ))
         )}
       </div>
 
-      {/* Spinner keyframe */}
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
