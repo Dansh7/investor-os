@@ -114,10 +114,10 @@ function MetricCol({ label, rawValue, fmtFn, estimate, beat, verified }: MetricC
   return (
     <div style={{
       background: '#111111', border: '1px solid #1a1a1a', borderRadius: 10,
-      padding: '16px', display: 'flex', flexDirection: 'column', gap: 5,
+      padding: '20px', display: 'flex', flexDirection: 'column', gap: 8,
     }}>
       <span style={{
-        fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: '#444',
+        fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: '#999',
         textTransform: 'uppercase', letterSpacing: '2px',
       }}>
         {label}
@@ -128,10 +128,10 @@ function MetricCol({ label, rawValue, fmtFn, estimate, beat, verified }: MetricC
       }}>
         {display}
       </span>
-      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: '#333', display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: '#aaa', display: 'flex', alignItems: 'center', gap: 4 }}>
         {estimate != null
           ? <><span>צפי {estimate}</span>{verified && beat != null && <span>{beat ? '✅' : '❌'}</span>}</>
-          : <span style={{ color: '#1f1f1f' }}>ללא צפי</span>
+          : <span style={{ color: '#555' }}>ללא צפי</span>
         }
       </div>
     </div>
@@ -154,8 +154,8 @@ function CallItem({ text }: { text: string }) {
       }} />
       <span style={{
         fontFamily: "'DM Sans', sans-serif",
-        fontSize: 13, lineHeight: 1.55,
-        color: hovered ? '#aaaaaa' : '#777777',
+        fontSize: 15, lineHeight: 1.55,
+        color: hovered ? '#dddddd' : '#bbbbbb',
         transition: 'color 120ms ease',
       }}>
         {text}
@@ -234,31 +234,31 @@ function EarningCard({ card }: { card: EarningsCard }) {
       {/* ── TOP ROW ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 22, flexWrap: 'wrap' }}>
         <span style={{
-          fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 500,
+          fontFamily: "'DM Mono', monospace", fontSize: 14, fontWeight: 500,
           color: '#ffffff', background: '#111111',
           border: '1px solid #222222', borderRadius: 6, padding: '4px 10px',
         }}>
           {card.ticker}
         </span>
-        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: '#444' }}>
+        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: '#aaa' }}>
           {card.quarter}
         </span>
         <span style={{ flex: 1 }} />
         {warnings.map((w, i) => (
           <span key={i} style={{
-            fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+            fontFamily: "'DM Sans', sans-serif", fontSize: 12,
             color: '#ffaa00', background: '#ffaa0010', border: '1px solid #ffaa0025',
             padding: '2px 8px', borderRadius: 99,
           }}>
             {w}
           </span>
         ))}
-        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: '#333' }}>
+        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: '#888' }}>
           {fmtDate(card.date)}
         </span>
-        <span style={{ color: '#2a2a2a', fontSize: 10, margin: '0 2px' }}>·</span>
+        <span style={{ color: '#555', fontSize: 11, margin: '0 2px' }}>·</span>
         <span style={{
-          fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+          fontFamily: "'DM Sans', sans-serif", fontSize: 12,
           color: verified ? '#00ff87' : '#ffaa00',
         }}>
           {sources.length} מקורות {verified ? '✅' : '⚠️'}
@@ -311,10 +311,10 @@ function EarningCard({ card }: { card: EarningsCard }) {
       {/* ── GUIDANCE ── */}
       {card.guidance_next_quarter && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'baseline' }}>
-          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: '#333', flexShrink: 0 }}>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: '#888', flexShrink: 0 }}>
             תחזית Q2:
           </span>
-          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: '#888', direction: 'ltr', textAlign: 'left' }}>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: '#aaa', direction: 'ltr', textAlign: 'left' }}>
             {card.guidance_next_quarter}
           </span>
         </div>
@@ -324,7 +324,7 @@ function EarningCard({ card }: { card: EarningsCard }) {
       {card.hebrew_summary && (
         <p style={{
           fontFamily: "'DM Sans', sans-serif",
-          fontSize: 14, color: '#aaaaaa', lineHeight: 1.7,
+          fontSize: 16, color: '#aaaaaa', lineHeight: 1.7,
           margin: '0 0 20px', textAlign: 'right',
           display: '-webkit-box',
           WebkitLineClamp: 2,
@@ -342,7 +342,7 @@ function EarningCard({ card }: { card: EarningsCard }) {
         <div style={{ marginBottom: 20 }}>
           <div style={{
             fontFamily: "'DM Sans', sans-serif",
-            fontSize: 10, color: '#333',
+            fontSize: 12, color: '#888',
             textTransform: 'uppercase', letterSpacing: '3px',
             marginBottom: 12,
           }}>
@@ -364,14 +364,14 @@ function EarningCard({ card }: { card: EarningsCard }) {
             <span key={i}>
               <a
                 href={s} target="_blank" rel="noopener noreferrer"
-                style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: '#2a2a2a', textDecoration: 'none', transition: 'color 120ms' }}
-                onMouseEnter={e => (e.currentTarget.style.color = '#555')}
-                onMouseLeave={e => (e.currentTarget.style.color = '#2a2a2a')}
+                style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: '#666', textDecoration: 'none', transition: 'color 120ms' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#aaa')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#666')}
               >
                 {sourceDomain(s)}
               </a>
               {i < Math.min(sources.length, 4) - 1 && (
-                <span style={{ color: '#222', marginLeft: 4 }}>,</span>
+                <span style={{ color: '#555', marginLeft: 4 }}>,</span>
               )}
             </span>
           ))}
