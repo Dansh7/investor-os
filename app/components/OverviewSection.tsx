@@ -338,15 +338,31 @@ function MarketNewsCard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const cutoff = new Date(Date.now() - 7 * 86_400_000).toISOString()
     getSupabase()
       .from('news_items')
-      .select('id, ticker, hebrew_title, hebrew_summary, summary, source, published_at, thesis_impact')
+      .select('id, ticker, hebrew_title, hebrew_summary, summary, source, published_at, thesis_impact, action_type')
       .in('action_type', ['immediate', 'daily', 'weekly'])
-      .gte('published_at', new Date(Date.now() - 7 * 86_400_000).toISOString())
+      .gte('published_at', cutoff)
+      // Sort: immediate first, then daily, then weekly; within each by recency
+      .order('action_type', { ascending: true })
       .order('published_at', { ascending: false })
-      .limit(3)
+      .limit(30)
       .then(({ data }) => {
-        setItems(data ?? [])
+        // Deduplicate: max 1 per ticker, pick the highest-priority row
+        const seen = new Set<string>()
+        const priority = (t: string) => t === 'immediate' ? 0 : t === 'daily' ? 1 : 2
+        const sorted = (data ?? []).sort((a, b) =>
+          priority((a as {action_type:string}).action_type) - priority((b as {action_type:string}).action_type) ||
+          new Date(b.published_at ?? 0).getTime() - new Date(a.published_at ?? 0).getTime()
+        )
+        const diverse: typeof sorted = []
+        for (const row of sorted) {
+          const t = row.ticker ?? '__'
+          if (!seen.has(t)) { seen.add(t); diverse.push(row) }
+          if (diverse.length === 3) break
+        }
+        setItems(diverse)
         setLoading(false)
       })
   }, [])
