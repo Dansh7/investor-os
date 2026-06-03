@@ -104,6 +104,17 @@ async function main() {
     try {
       // 3b. Perplexity — pass day change so model knows there was movement
       const perplexity = await searchNews(ticker, company_name, dayChangePct)
+
+      // --raw flag: print full Perplexity response before scoring
+      if (process.argv.includes('--raw')) {
+        console.log(`\n${'─'.repeat(60)}`)
+        console.log(`RAW PERPLEXITY → ${ticker}`)
+        console.log(`${'─'.repeat(60)}`)
+        console.log(perplexity.summary)
+        console.log(`Sources: ${perplexity.sources.slice(0, 3).join(' | ')}`)
+        console.log(`${'─'.repeat(60)}\n`)
+      }
+
       if (perplexity.error || !perplexity.summary) {
         console.log(`⚠ Perplexity error: ${perplexity.error}`)
         results.push({ ticker, routing: 'skip', cost: 0, stored: false, title: '—', error: perplexity.error })

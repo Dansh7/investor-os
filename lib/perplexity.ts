@@ -1,9 +1,9 @@
 const PERPLEXITY_BASE = 'https://api.perplexity.ai'
-const MODEL = 'sonar'
+const MODEL = 'sonar-pro'
 
-// sonar pricing (as of 2025): $1/1M input tokens, $1/1M output tokens, +$5/1000 searches
-const COST_PER_M_INPUT  = 1.0
-const COST_PER_M_OUTPUT = 1.0
+// sonar-pro pricing: $3/1M input tokens, $15/1M output tokens, +$5/1000 searches
+const COST_PER_M_INPUT  = 3.0
+const COST_PER_M_OUTPUT = 15.0
 const COST_PER_SEARCH   = 0.005
 
 export interface PerplexityResult {
@@ -30,23 +30,13 @@ export async function searchNews(
     : ''
 
   const query = [
-    `Today is ${today}. Search for ${ticker} (${companyName}).`,
+    `${ticker} stock price today ${today}:`,
     moveLine,
-    `Find ANY of the following from the last 48 hours:`,
-    `- Price movement and reason`,
-    `- Analyst upgrades/downgrades`,
-    `- News articles mentioning the stock`,
-    `- Sector or macro events affecting this stock`,
-    `- Social sentiment or unusual activity`,
-    `- Competitor news that affects this stock`,
-    `- Any mention of this company in financial media`,
-    `There is ALWAYS something. If the stock itself has no news, explain:`,
-    `1. How it performed vs sector today`,
-    `2. What macro/market conditions affected it`,
-    `3. What analysts said recently`,
-    `Never return 'no news'. Always return a 2-3 sentence Hebrew summary of the most relevant context for an investor holding this stock today.`,
-    `Minimum output: stock performance context + one relevant data point.`,
-    `Cite all sources with dates.`,
+    `- What caused today's price movement (give exact % and reason)?`,
+    `- Any insider selling, dilution, offerings, or SEC filings today?`,
+    `- Analyst consensus and recent price target changes?`,
+    `- Notable news from last 24 hours with sources?`,
+    `Give a detailed answer like a financial analyst report. Include specific numbers.`,
   ].filter(Boolean).join('\n')
 
   let res: Response
@@ -62,6 +52,8 @@ export async function searchNews(
         messages: [{ role: 'user', content: query }],
         return_citations: true,
         return_images: false,
+        search_recency_filter: 'day',
+        web_search_options: { search_context_size: 'high' },
       }),
     })
   } catch (err) {
