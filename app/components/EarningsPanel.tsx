@@ -25,7 +25,7 @@ function fmt(n: number | null | undefined, decimals = 2): string {
 
 function fmtRevenue(b: number | null | undefined): string {
   if (b == null) return '—'
-  return b >= 1 ? `$${b.toFixed(2)}B` : `$${(b * 1000).toFixed(0)}M`
+  return b >= 1 ? `$${Number(b).toFixed(2)}B` : `$${Number(b * 1000).toFixed(0)}M`
 }
 
 function BeatIcon({ beat }: { beat: boolean | null }) {
@@ -142,7 +142,7 @@ function EarningCard({ card }: { card: EarningsCard }) {
             <span style={{ color: '#444' }}>|</span>
             <span style={{ fontSize: 14, color: '#C8C8C8' }}>
               <span style={{ color: '#666' }}>מרווח גולמי: </span>
-              <span style={{ fontWeight: 600 }}>{card.gross_margin_pct.toFixed(1)}%</span>
+              <span style={{ fontWeight: 600 }}>{Number(card.gross_margin_pct).toFixed(1)}%</span>
             </span>
           </>
         )}
@@ -156,7 +156,7 @@ function EarningCard({ card }: { card: EarningsCard }) {
             fontSize: 15, fontWeight: 700,
             color: card.stock_reaction_pct >= 0 ? '#00DC82' : '#FF5A5A',
           }}>
-            {card.stock_reaction_pct >= 0 ? '+' : ''}{card.stock_reaction_pct.toFixed(1)}%
+            {card.stock_reaction_pct >= 0 ? '+' : ''}{Number(card.stock_reaction_pct).toFixed(1)}%
           </span>
         </div>
       )}
