@@ -16,6 +16,8 @@ interface HoldingRow {
 
 interface ExposureSlice { label: string; pct: number; color: string }
 
+interface FearGreedData { value: number | null; rating: string | null }
+
 interface Props {
   total:          number
   invested:       number
@@ -27,6 +29,7 @@ interface Props {
   exposureData:   ExposureSlice[]
   vixValue:       number | null
   vixChangePct:   number | null
+  fearGreed:      FearGreedData | null
   intelItems:     IntelItem[]
   sortedRows:     HoldingRow[]
   newsItems:      NewsItem[]
@@ -51,34 +54,17 @@ function PortfolioCard({ total, invested, cash, cashPct, todayPnL, todayPnLPct, 
 }) {
   const up = todayPnL >= 0
   return (
-    <div style={{ background: '#111118', border: '1px solid #1a1a28', borderRadius: 14, padding: '22px 24px', gridColumn: 'span 2' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
-        <div>
-          <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 12, color: '#555', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-            Total Portfolio Value
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          </div>
-          <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 36, fontWeight: 700, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1 }}>
-            {fmtAmount(total)}
-          </div>
-          <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 13, color: up ? '#00d4a8' : '#ff4d6d', marginTop: 8, fontWeight: 500 }}>
-            {up ? '+' : ''}{fmtAmount(todayPnL)} ({up ? '+' : ''}{todayPnLPct.toFixed(2)}%) today
-          </div>
+    <div style={{ background: '#111118', border: '1px solid #1a1a28', borderRadius: 14, padding: '22px 24px' }}>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 12, color: '#555', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+          Total Portfolio Value
         </div>
-        {/* Mini sparkline — directional visual */}
-        <svg width="120" height="48" viewBox="0 0 120 48" style={{ opacity: 0.6 }}>
-          <defs>
-            <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={up ? '#00d4a8' : '#ff4d6d'} stopOpacity="0.3" />
-              <stop offset="100%" stopColor={up ? '#00d4a8' : '#ff4d6d'} stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <path
-            d={up
-              ? 'M0 38 C15 36 25 32 35 28 C50 22 60 20 75 16 C88 12 100 10 120 6'
-              : 'M0 10 C15 12 25 16 35 20 C50 26 60 28 75 32 C88 36 100 38 120 42'}
-            stroke={up ? '#00d4a8' : '#ff4d6d'} strokeWidth="1.5" fill="none" />
-        </svg>
+        <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 36, fontWeight: 700, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1 }}>
+          {fmtAmount(total)}
+        </div>
+        <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 13, color: up ? '#00d4a8' : '#ff4d6d', marginTop: 8, fontWeight: 500 }}>
+          {up ? '+' : ''}{fmtAmount(todayPnL)} ({up ? '+' : ''}{todayPnLPct.toFixed(2)}%) today
+        </div>
       </div>
 
       {/* Stats row */}
@@ -159,6 +145,65 @@ function VixCard({ vixValue, vixChangePct }: { vixValue: number | null; vixChang
       {level && (
         <span style={{ display: 'inline-block', marginTop: 12, fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 11, fontWeight: 600, color: levelColor, background: `${levelColor}18`, border: `1px solid ${levelColor}33`, padding: '2px 8px', borderRadius: 6 }}>
           {level}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// ─── Fear & Greed card ────────────────────────────────────────────────────────
+
+function FearGreedCard({ fearGreed }: { fearGreed: FearGreedData | null }) {
+  const v = fearGreed?.value ?? null
+  const rating = fearGreed?.rating ?? null
+
+  const color = v == null ? '#444'
+    : v < 25 ? '#ff4d6d'
+    : v < 45 ? '#ffaa00'
+    : v < 55 ? '#ffdd44'
+    : v < 75 ? '#7aab6b'
+    : '#00d4a8'
+
+  const r = 38
+  const totalLen = Math.PI * r
+  const dash = v != null ? (v / 100) * totalLen : 0
+
+  return (
+    <div style={{ background: '#111118', border: '1px solid #1a1a28', borderRadius: 14, padding: '22px 24px' }}>
+      <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 12, color: '#555', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+        Fear &amp; Greed
+      </div>
+
+      {/* Semicircle gauge */}
+      <svg width="100%" height="60" viewBox="0 0 120 66" style={{ display: 'block', marginBottom: 6 }}>
+        {/* Background arc */}
+        <path d={`M 6 60 A ${r} ${r} 0 0 1 114 60`}
+          fill="none" stroke="#1a1a28" strokeWidth="8" strokeLinecap="round" />
+        {/* Value arc */}
+        <path d={`M 6 60 A ${r} ${r} 0 0 1 114 60`}
+          fill="none" stroke={color} strokeWidth="8" strokeLinecap="round"
+          strokeDasharray={`${dash} ${totalLen}`}
+          style={{ transition: 'stroke-dasharray 600ms ease-out' }}
+        />
+        {/* Value text in arc center */}
+        {v != null && (
+          <text x="60" y="56" textAnchor="middle" fill={color}
+            style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: '18px', fontWeight: 700 }}>
+            {Math.round(v)}
+          </text>
+        )}
+      </svg>
+
+      {v == null ? (
+        <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 13, color: '#333' }}>—</div>
+      ) : (
+        <span style={{
+          display: 'inline-block',
+          fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 11, fontWeight: 600,
+          color, background: `${color}18`, border: `1px solid ${color}33`,
+          padding: '2px 8px', borderRadius: 6, textTransform: 'capitalize',
+        }}>
+          {rating ?? (v < 45 ? 'Fear' : v < 55 ? 'Neutral' : 'Greed')}
         </span>
       )}
     </div>
@@ -299,8 +344,8 @@ function MarketNewsCard({ newsItems }: { newsItems: NewsItem[] }) {
                 </span>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 13, color: '#ccc', lineHeight: 1.4, marginBottom: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' } as React.CSSProperties}>
-                  {n.headline}
+                <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 13, color: '#ccc', lineHeight: 1.4, marginBottom: 4, direction: 'rtl', textAlign: 'right', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' } as React.CSSProperties}>
+                  {n.hebrew_title ?? (n.ticker ? `עדכון ${n.ticker}` : 'עדכון SEC')}
                 </div>
                 <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 11, color: '#444' }}>
                   {n.source ?? 'Unknown'} · {n.published_at ? timeAgo(n.published_at) : ''}
@@ -317,15 +362,16 @@ function MarketNewsCard({ newsItems }: { newsItems: NewsItem[] }) {
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export function OverviewSection(props: Props) {
-  const { total, invested, cash, cashPct, todayPnL, todayPnLPct, holdingsCount, exposureData, vixValue, vixChangePct, intelItems, sortedRows, newsItems, fmtAmount } = props
+  const { total, invested, cash, cashPct, todayPnL, todayPnLPct, holdingsCount, exposureData, vixValue, vixChangePct, fearGreed, intelItems, sortedRows, newsItems, fmtAmount } = props
 
   return (
     <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Row 1: Portfolio Value (2fr) + Allocation (1fr) + VIX (1fr) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 14 }}>
+      {/* Row 1: Portfolio (2fr) + Allocation (1fr) + VIX (1fr) + Fear&Greed (1fr) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 14 }}>
         <PortfolioCard total={total} invested={invested} cash={cash} cashPct={cashPct} todayPnL={todayPnL} todayPnLPct={todayPnLPct} holdingsCount={holdingsCount} fmtAmount={fmtAmount} />
         <AllocationCard exposureData={exposureData} />
         <VixCard vixValue={vixValue} vixChangePct={vixChangePct} />
+        <FearGreedCard fearGreed={fearGreed} />
       </div>
 
       {/* Row 2: AI Summary + Top Movers + Market News */}

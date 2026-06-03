@@ -15,6 +15,7 @@ export interface NewsItem {
   confidence_score?: number | null
   thesis_impact?: string | null
   action_type?: string | null
+  hebrew_title?: string | null
   is_verified?: boolean | null
   scoring_reason?: string | null
   sentiment?: string | null

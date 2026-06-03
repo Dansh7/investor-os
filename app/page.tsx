@@ -242,6 +242,7 @@ export default function Dashboard() {
   const [pricesLoading, setPricesLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('intelligence')
   const [mainView, setMainView] = useState<MainView>('overview')
+  const [fearGreed, setFearGreed] = useState<{ value: number | null; rating: string | null } | null>(null)
   const [lastSync, setLastSync] = useState<Date | null>(null)
 
   const [showModal, setShowModal] = useState(false)
@@ -322,7 +323,7 @@ export default function Dashboard() {
     const [alertsRes, newsRes, eventsRes, policyRes, rulesRes, objectivesRes, watchlistRes] =
       await Promise.allSettled([
         supabase.from('alerts').select('*').eq('portfolio_id', 1).order('triggered_at', { ascending: false }).limit(50),
-        supabase.from('news_items').select('id, ticker, headline, source, source_url, published_at, importance_score, portfolio_impact_score, urgency_score, confidence_score, thesis_impact, action_type, is_verified, scoring_reason, sentiment, summary, tags').order('published_at', { ascending: false }).limit(60),
+        supabase.from('news_items').select('id, ticker, headline, hebrew_title, source, source_url, published_at, importance_score, portfolio_impact_score, urgency_score, confidence_score, thesis_impact, action_type, is_verified, scoring_reason, sentiment, summary, tags').order('published_at', { ascending: false }).limit(60),
         supabase.from('events').select('id, ticker, event_type, event_name, scheduled_at, notes').gte('scheduled_at', today).order('scheduled_at').limit(20),
         supabase.from('portfolio_policy').select('max_single_position_pct, max_sector_concentration_pct, min_cash_pct, max_cash_pct, rebalance_frequency').eq('portfolio_id', 1).single(),
         supabase.from('playbook_rules').select('*').eq('portfolio_id', 1).order('priority'),
@@ -340,6 +341,11 @@ export default function Dashboard() {
 
   useEffect(() => { fetchHoldings() }, [fetchHoldings])
   useEffect(() => { fetchIntelligence() }, [fetchIntelligence])
+  useEffect(() => {
+    fetch('/api/macro').then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.fearGreed) setFearGreed(d.fearGreed)
+    }).catch(() => {})
+  }, [])
 
   const fetchNewsIntel = useCallback(async (morning = false, changes?: Record<string, number>) => {
     setIntelLoading(true)
@@ -730,6 +736,7 @@ export default function Dashboard() {
               total={total} invested={invested} cash={cash} cashPct={cashPct}
               todayPnL={todayPnL} todayPnLPct={todayPnLPct} holdingsCount={holdings.length}
               exposureData={exposureData} vixValue={vixValue} vixChangePct={vixChangePct}
+              fearGreed={fearGreed}
               intelItems={intelItems} sortedRows={sortedRows} newsItems={newsItems}
               fmtAmount={fmtAmount}
             />
