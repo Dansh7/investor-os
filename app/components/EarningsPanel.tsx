@@ -60,8 +60,12 @@ function getWarnings(card: EarningsCard): EarningsWarning[] {
     const ageDays = (Date.now() - new Date(card.date).getTime()) / 86_400_000
     if (ageDays > 180) warnings.push({ label: '⚠️ דוח ישן' })
   }
-  if ((card.sources ?? []).length < 2) warnings.push({ label: '⚠️ מקור יחיד' })
+  if ((card.sources ?? []).length < 3) warnings.push({ label: '⚠️ פחות מ-3 מקורות — נתונים לא מאומתים' })
   return warnings
+}
+
+function sourcesVerified(card: EarningsCard): boolean {
+  return (card.sources ?? []).length >= 3
 }
 
 // ─── Divider ──────────────────────────────────────────────────────────────────
@@ -129,9 +133,10 @@ const THESIS_META = {
 }
 
 function EarningCard({ card }: { card: EarningsCard }) {
-  const thesis   = THESIS_META[card.thesis_impact] ?? THESIS_META.neutral
-  const warnings = getWarnings(card)
-  const sources  = card.sources ?? []
+  const thesis    = THESIS_META[card.thesis_impact] ?? THESIS_META.neutral
+  const warnings  = getWarnings(card)
+  const sources   = card.sources ?? []
+  const verified  = sourcesVerified(card)
   const reactionN = safeNum(card.stock_reaction_pct)
 
   if (card.loading) {
@@ -185,6 +190,17 @@ function EarningCard({ card }: { card: EarningsCard }) {
         <span style={{ color: '#888', fontSize: 13, fontWeight: 500 }}>{card.quarter}</span>
         <span style={{ color: '#555', fontSize: 12 }}>{fmtDate(card.date)}</span>
 
+        {/* Source count badge */}
+        <span style={{
+          fontSize: 11, fontWeight: 600,
+          color: verified ? '#00DC82' : '#F5A623',
+          background: verified ? 'rgba(0,220,130,0.08)' : 'rgba(245,166,35,0.08)',
+          border: `1px solid ${verified ? 'rgba(0,220,130,0.20)' : 'rgba(245,166,35,0.20)'}`,
+          padding: '1px 7px', borderRadius: 99,
+        }}>
+          {sources.length} מקורות {verified ? '✅' : '⚠️'}
+        </span>
+
         {/* Warnings — small amber badges, non-blocking */}
         {warnings.map((w, i) => (
           <span key={i} style={{
@@ -219,7 +235,7 @@ function EarningCard({ card }: { card: EarningsCard }) {
             <span style={{ fontSize: 14, fontWeight: 700, color: '#E0E0E0', fontVariantNumeric: 'tabular-nums' }}>
               {fmtRevenue(card.revenue.actual)}
             </span>
-            {card.revenue.estimate != null && (
+            {card.revenue.estimate != null && verified && (
               <span style={{ fontSize: 13 }}>{card.revenue.beat ? '✅' : '❌'}</span>
             )}
           </span>
@@ -235,7 +251,7 @@ function EarningCard({ card }: { card: EarningsCard }) {
             <span style={{ fontSize: 14, fontWeight: 700, color: '#E0E0E0', fontVariantNumeric: 'tabular-nums' }}>
               ${fmt(card.eps.actual)}
             </span>
-            {card.eps.estimate != null && (
+            {card.eps.estimate != null && verified && (
               <span style={{ fontSize: 13 }}>{card.eps.beat ? '✅' : '❌'}</span>
             )}
           </span>

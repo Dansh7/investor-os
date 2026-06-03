@@ -99,10 +99,11 @@ export async function fetchEarnings(
   }
 
   const query =
-    `Most recent earnings report for ${ticker} (${companyName}). ` +
-    `State the exact report date. Cross-reference minimum 2 sources. ` +
-    `Include: revenue actual vs estimate, EPS actual vs estimate, gross margin, ` +
-    `stock reaction on earnings day %, guidance next quarter. ` +
+    `For ${ticker} (${companyName}) most recent earnings report: ` +
+    `Find revenue actual vs analyst consensus estimate, EPS actual vs analyst consensus estimate. ` +
+    `IMPORTANT: Cross-reference minimum 3 separate sources (e.g. SEC filing + CNBC/Bloomberg + Seeking Alpha/MarketWatch). ` +
+    `If fewer than 3 sources found, explicitly state that. ` +
+    `Also include: gross margin, stock reaction on earnings day %, guidance next quarter. ` +
     `Cite all sources with URLs.`
 
   let res: Response
