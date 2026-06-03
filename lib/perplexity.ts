@@ -26,20 +26,26 @@ export async function searchNews(
 
   const today = new Date().toISOString().split('T')[0]
   const moveLine = dayChangePct != null && Math.abs(dayChangePct) >= 0.5
-    ? `The stock is ${dayChangePct >= 0 ? 'UP' : 'DOWN'} ${Math.abs(dayChangePct).toFixed(2)}% today — explain exactly why.`
+    ? `Note: The stock is ${dayChangePct >= 0 ? 'UP' : 'DOWN'} ${Math.abs(dayChangePct).toFixed(2)}% today.`
     : ''
 
   const query = [
-    `Today is ${today}.`,
-    `${ticker} (${companyName}) stock moved significantly today.`,
+    `Today is ${today}. Search for ${ticker} (${companyName}).`,
     moveLine,
-    `Find:`,
-    `1. Exact price change % today`,
-    `2. Why did it move? (news, macro, sector, earnings, analyst action)`,
-    `3. Any breaking news in last 24h`,
-    `4. What are traders/analysts saying today specifically`,
-    `Search: '${ticker} stock today ${today}' AND '${ticker} news today' AND '${ticker} price drop OR rally today'`,
-    `Be specific. If you find nothing from today, say exactly that.`,
+    `Find ANY of the following from the last 48 hours:`,
+    `- Price movement and reason`,
+    `- Analyst upgrades/downgrades`,
+    `- News articles mentioning the stock`,
+    `- Sector or macro events affecting this stock`,
+    `- Social sentiment or unusual activity`,
+    `- Competitor news that affects this stock`,
+    `- Any mention of this company in financial media`,
+    `There is ALWAYS something. If the stock itself has no news, explain:`,
+    `1. How it performed vs sector today`,
+    `2. What macro/market conditions affected it`,
+    `3. What analysts said recently`,
+    `Never return 'no news'. Always return a 2-3 sentence Hebrew summary of the most relevant context for an investor holding this stock today.`,
+    `Minimum output: stock performance context + one relevant data point.`,
     `Cite all sources with dates.`,
   ].filter(Boolean).join('\n')
 
