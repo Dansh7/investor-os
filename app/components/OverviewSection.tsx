@@ -15,6 +15,8 @@ function getSupabase() {
 interface NewsRow {
   id: string
   ticker: string | null
+  hebrew_title:   string | null
+  hebrew_summary: string | null
   summary: string | null
   source: string | null
   published_at: string | null
@@ -338,8 +340,9 @@ function MarketNewsCard() {
   useEffect(() => {
     getSupabase()
       .from('news_items')
-      .select('id, ticker, summary, source, published_at, thesis_impact')
+      .select('id, ticker, hebrew_title, hebrew_summary, summary, source, published_at, thesis_impact')
       .in('action_type', ['immediate', 'daily', 'weekly'])
+      .gte('published_at', new Date(Date.now() - 7 * 86_400_000).toISOString())
       .order('published_at', { ascending: false })
       .limit(3)
       .then(({ data }) => {
@@ -349,7 +352,9 @@ function MarketNewsCard() {
   }, [])
 
   const headline = (n: NewsRow) => {
-    if (n.summary?.trim()) return n.summary.trim().slice(0, 80)
+    if (n.hebrew_title?.trim())   return n.hebrew_title.trim()
+    if (n.hebrew_summary?.trim()) return n.hebrew_summary.trim().slice(0, 80)
+    if (n.summary?.trim())        return n.summary.trim().slice(0, 80)
     return n.ticker ? `עדכון ${n.ticker}` : 'עדכון SEC'
   }
 
@@ -369,7 +374,7 @@ function MarketNewsCard() {
       {loading ? (
         <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 13, color: '#333', textAlign: 'center', padding: '16px 0' }}>טוען…</div>
       ) : items.length === 0 ? (
-        <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 13, color: '#333', textAlign: 'center', padding: '16px 0' }}>אין ידיעות</div>
+        <div style={{ fontFamily: 'var(--font-dm-sans), sans-serif', fontSize: 13, color: '#333', textAlign: 'center', padding: '16px 0' }}>אין עדכונים חדשים</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {items.map(n => {
