@@ -1,6 +1,9 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
 import type { EarningsResult } from '@/lib/earnings-formatter'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface EarningsCard extends EarningsResult {
   ticker:       string
@@ -15,6 +18,14 @@ interface Props {
   onRefresh: () => void
   loading:   boolean
 }
+
+// ─── Theme tokens ─────────────────────────────────────────────────────────────
+
+const THESIS = {
+  supporting: { label: 'תומך',  icon: '✅',  accent: '#00ff87', bg: '#00ff8715', border: '#00ff8730' },
+  weakening:  { label: 'מחליש', icon: '⚠️', accent: '#ffaa00', bg: '#ffaa0015', border: '#ffaa0030' },
+  neutral:    { label: 'ניטרלי', icon: '',   accent: '#555555', bg: '#55555515', border: '#55555530' },
+} as const
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -36,74 +47,118 @@ function fmtRevenue(v: unknown): string {
   return b >= 1 ? `$${b.toFixed(2)}B` : `$${(b * 1000).toFixed(0)}M`
 }
 
-function fmtDate(iso: string): string {
+function fmtDate(iso: string | undefined): string {
+  if (!iso) return ''
   try {
     const d = new Date(iso)
-    const dd = String(d.getUTCDate()).padStart(2, '0')
-    const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
-    const yy = d.getUTCFullYear()
-    return `${dd}.${mm}.${yy}`
+    return `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}.${d.getUTCFullYear()}`
   } catch { return iso }
 }
 
 function sourceDomain(url: string): string {
-  try { return new URL(url).hostname.replace('www.', '') } catch { return url.slice(0, 30) }
-}
-
-// ─── Validation badges ────────────────────────────────────────────────────────
-
-interface EarningsWarning { label: string }
-
-function getWarnings(card: EarningsCard): EarningsWarning[] {
-  const warnings: EarningsWarning[] = []
-  if (card.date) {
-    const ageDays = (Date.now() - new Date(card.date).getTime()) / 86_400_000
-    if (ageDays > 180) warnings.push({ label: '⚠️ דוח ישן' })
-  }
-  if ((card.sources ?? []).length < 3) warnings.push({ label: '⚠️ פחות מ-3 מקורות — נתונים לא מאומתים' })
-  return warnings
+  try { return new URL(url).hostname.replace('www.', '') } catch { return url.slice(0, 25) }
 }
 
 function sourcesVerified(card: EarningsCard): boolean {
   return (card.sources ?? []).length >= 3
 }
 
-// ─── Divider ──────────────────────────────────────────────────────────────────
+function getWarnings(card: EarningsCard): string[] {
+  const w: string[] = []
+  if (card.date && (Date.now() - new Date(card.date).getTime()) / 86_400_000 > 180)
+    w.push('⚠️ דוח ישן')
+  if ((card.sources ?? []).length < 3)
+    w.push('⚠️ פחות מ-3 מקורות')
+  return w
+}
 
-const Divider = () => (
-  <div style={{ borderTop: '1px solid #1E1E1E', margin: '12px 0' }} />
-)
+// ─── Count-up hook ────────────────────────────────────────────────────────────
 
-// ─── Metric row ───────────────────────────────────────────────────────────────
+function useCountUp(target: number | null, duration = 800): number {
+  const [val, setVal] = useState(0)
+  const raf = useRef<number | null>(null)
 
-function MetricRow({
-  label, actual, estimate, beat, prefix = '', suffix = '',
-}: {
-  label: string
-  actual: string
+  useEffect(() => {
+    if (target == null) { setVal(0); return }
+    setVal(0)
+    const start = performance.now()
+    const tick = (now: number) => {
+      const t     = Math.min((now - start) / duration, 1)
+      const eased = 1 - Math.pow(1 - t, 3)
+      setVal(target * eased)
+      if (t < 1) raf.current = requestAnimationFrame(tick)
+      else setVal(target)
+    }
+    raf.current = requestAnimationFrame(tick)
+    return () => { if (raf.current != null) cancelAnimationFrame(raf.current) }
+  }, [target, duration])
+
+  return val
+}
+
+// ─── Metric column ────────────────────────────────────────────────────────────
+
+interface MetricColProps {
+  label:     string
+  rawValue:  number | null
+  fmtFn:     (v: number) => string
   estimate?: string | null
-  beat?: boolean | null
-  prefix?: string
-  suffix?: string
-}) {
-  const hasEstimate = estimate != null && estimate !== '—'
+  beat?:     boolean | null
+  verified:  boolean
+}
+
+function MetricCol({ label, rawValue, fmtFn, estimate, beat, verified }: MetricColProps) {
+  const animated = useCountUp(rawValue)
+  const display  = rawValue != null ? fmtFn(animated) : '—'
+
   return (
     <div style={{
-      display: 'flex', alignItems: 'baseline',
-      justifyContent: 'space-between', gap: 8,
-      fontSize: 14, lineHeight: 1.6,
+      background: '#111111', border: '1px solid #1a1a1a', borderRadius: 10,
+      padding: '16px', display: 'flex', flexDirection: 'column', gap: 5,
     }}>
-      <span style={{ color: '#666', flexShrink: 0 }}>{label}</span>
-      <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-        <span style={{ fontWeight: 600, color: '#E0E0E0', fontVariantNumeric: 'tabular-nums' }}>
-          {prefix}{actual}{suffix}
-        </span>
-        {hasEstimate && (
-          <span style={{ color: '#555', fontSize: 12 }}>(צפי: {prefix}{estimate}{suffix})</span>
-        )}
-        {hasEstimate && beat != null && (
-          <span style={{ fontSize: 13 }}>{beat ? '✅' : '❌'}</span>
-        )}
+      <span style={{
+        fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: '#444',
+        textTransform: 'uppercase', letterSpacing: '2px',
+      }}>
+        {label}
+      </span>
+      <span style={{
+        fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, color: '#ffffff',
+        lineHeight: 1, letterSpacing: '1px',
+      }}>
+        {display}
+      </span>
+      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: '#333', display: 'flex', alignItems: 'center', gap: 4 }}>
+        {estimate != null
+          ? <><span>צפי {estimate}</span>{verified && beat != null && <span>{beat ? '✅' : '❌'}</span>}</>
+          : <span style={{ color: '#1f1f1f' }}>ללא צפי</span>
+        }
+      </div>
+    </div>
+  )
+}
+
+// ─── Call bullet item ─────────────────────────────────────────────────────────
+
+function CallItem({ text }: { text: string }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <div
+      style={{ display: 'flex', alignItems: 'flex-start', gap: 10, direction: 'rtl' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <span style={{
+        width: 6, height: 6, borderRadius: '50%', background: '#00ff87',
+        flexShrink: 0, marginTop: 6, display: 'inline-block',
+      }} />
+      <span style={{
+        fontFamily: "'DM Sans', sans-serif",
+        fontSize: 13, lineHeight: 1.55,
+        color: hovered ? '#aaaaaa' : '#777777',
+        transition: 'color 120ms ease',
+      }}>
+        {text}
       </span>
     </div>
   )
@@ -113,11 +168,9 @@ function MetricRow({
 
 function RefreshIcon({ spinning }: { spinning: boolean }) {
   return (
-    <svg
-      width="14" height="14" viewBox="0 0 24 24" fill="none"
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-      style={{ animation: spinning ? 'spin 0.8s linear infinite' : 'none' }}
-    >
+      style={{ animation: spinning ? 'spin 0.8s linear infinite' : 'none' }}>
       <path d="M23 4v6h-6" /><path d="M1 20v-6h6" />
       <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
     </svg>
@@ -126,24 +179,20 @@ function RefreshIcon({ spinning }: { spinning: boolean }) {
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
 
-const THESIS_META = {
-  supporting: { label: 'תומך ✅',   color: '#00DC82', bg: 'rgba(0,220,130,0.08)' },
-  weakening:  { label: 'מחליש ⚠️', color: '#F5A623', bg: 'rgba(245,166,35,0.10)' },
-  neutral:    { label: 'ניטרלי',   color: '#555',    bg: 'rgba(100,100,100,0.07)' },
-}
-
 function EarningCard({ card }: { card: EarningsCard }) {
-  const thesis    = THESIS_META[card.thesis_impact] ?? THESIS_META.neutral
-  const warnings  = getWarnings(card)
-  const sources   = card.sources ?? []
-  const verified  = sourcesVerified(card)
+  const [hovered, setHovered] = useState(false)
+  const th       = THESIS[card.thesis_impact] ?? THESIS.neutral
+  const warnings = getWarnings(card)
+  const sources  = card.sources ?? []
+  const verified = sourcesVerified(card)
   const reactionN = safeNum(card.stock_reaction_pct)
 
   if (card.loading) {
     return (
       <div style={{
-        background: '#111', border: '1px solid #1C1C1C', borderRadius: 12,
-        padding: '20px 22px', color: '#444', fontSize: 14, textAlign: 'center',
+        background: '#0a0a0a', border: '1px solid #1f1f1f', borderLeft: '4px solid #1f1f1f',
+        borderRadius: 16, padding: '28px 32px',
+        fontFamily: "'DM Sans', sans-serif", color: '#333', fontSize: 13,
       }}>
         {card.ticker} — טוען…
       </div>
@@ -153,13 +202,13 @@ function EarningCard({ card }: { card: EarningsCard }) {
   if (card.error || !card.date) {
     return (
       <div style={{
-        background: '#111', border: '1px solid #1C1C1C', borderRadius: 12,
-        padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 10,
+        background: '#0a0a0a', border: '1px solid #1f1f1f', borderLeft: '4px solid #ff3b3b',
+        borderRadius: 16, padding: '22px 28px', display: 'flex', alignItems: 'center', gap: 12,
       }}>
-        <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: '#FF5A5A' }}>
+        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 500, color: '#ff3b3b' }}>
           {card.ticker}
         </span>
-        <span style={{ color: '#555', fontSize: 13 }}>
+        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: '#444' }}>
           {card.error ?? 'אין נתוני רווחים'}
         </span>
       </div>
@@ -167,184 +216,176 @@ function EarningCard({ card }: { card: EarningsCard }) {
   }
 
   return (
-    <div style={{
-      background: '#111111',
-      border: '1px solid #1C1C1C',
-      borderLeft: `3px solid ${thesis.color}`,
-      borderRadius: 12,
-      padding: '18px 20px',
-      direction: 'rtl',
-    }}>
-
-      {/* ── Top row: ticker | quarter | date | warnings ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+    <div
+      style={{
+        background: '#0a0a0a',
+        border: `1px solid ${hovered ? '#2a2a2a' : '#1f1f1f'}`,
+        borderLeft: `4px solid ${th.accent}`,
+        borderRadius: 16,
+        padding: '28px 32px',
+        direction: 'rtl',
+        animation: 'cardMount 400ms ease-out both',
+        transition: 'border-color 150ms ease',
+        cursor: 'default',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* ── TOP ROW ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 22, flexWrap: 'wrap' }}>
         <span style={{
-          fontFamily: 'monospace', fontWeight: 700, fontSize: 12,
-          color: thesis.color,
-          background: `${thesis.color}18`,
-          border: `1px solid ${thesis.color}33`,
-          padding: '2px 9px', borderRadius: 99,
+          fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 500,
+          color: '#ffffff', background: '#111111',
+          border: '1px solid #222222', borderRadius: 6, padding: '4px 10px',
         }}>
           {card.ticker}
         </span>
-        <span style={{ color: '#888', fontSize: 13, fontWeight: 500 }}>{card.quarter}</span>
-        <span style={{ color: '#555', fontSize: 12 }}>{fmtDate(card.date)}</span>
-
-        {/* Source count badge */}
+        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: '#444' }}>
+          {card.quarter}
+        </span>
+        <span style={{ flex: 1 }} />
+        {warnings.map((w, i) => (
+          <span key={i} style={{
+            fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+            color: '#ffaa00', background: '#ffaa0010', border: '1px solid #ffaa0025',
+            padding: '2px 8px', borderRadius: 99,
+          }}>
+            {w}
+          </span>
+        ))}
+        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: '#333' }}>
+          {fmtDate(card.date)}
+        </span>
+        <span style={{ color: '#2a2a2a', fontSize: 10, margin: '0 2px' }}>·</span>
         <span style={{
-          fontSize: 11, fontWeight: 600,
-          color: verified ? '#00DC82' : '#F5A623',
-          background: verified ? 'rgba(0,220,130,0.08)' : 'rgba(245,166,35,0.08)',
-          border: `1px solid ${verified ? 'rgba(0,220,130,0.20)' : 'rgba(245,166,35,0.20)'}`,
-          padding: '1px 7px', borderRadius: 99,
+          fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+          color: verified ? '#00ff87' : '#ffaa00',
         }}>
           {sources.length} מקורות {verified ? '✅' : '⚠️'}
         </span>
-
-        {/* Warnings — small amber badges, non-blocking */}
-        {warnings.map((w, i) => (
-          <span key={i} style={{
-            fontSize: 11, fontWeight: 600,
-            color: '#F5A623', background: 'rgba(245,166,35,0.08)',
-            border: '1px solid rgba(245,166,35,0.18)',
-            padding: '1px 6px', borderRadius: 99, marginRight: 'auto',
-          }}>
-            {w.label}
-          </span>
-        ))}
-        {card.cacheHit && !warnings.length && (
-          <span style={{ fontSize: 10, color: '#2A2A2A', marginRight: 'auto' }}>מטמון</span>
-        )}
       </div>
 
-      {/* ── Metrics: 3-column grid ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: '8px 16px',
-        marginBottom: 12,
-        padding: '12px 14px',
-        background: '#0C0C0C',
-        borderRadius: 8,
-        border: '1px solid #1A1A1A',
-      }}>
-        {/* הכנסות */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <span style={{ fontSize: 11, color: '#555' }}>הכנסות</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#E0E0E0', fontVariantNumeric: 'tabular-nums' }}>
-              {fmtRevenue(card.revenue.actual)}
-            </span>
-            {card.revenue.estimate != null && verified && (
-              <span style={{ fontSize: 13 }}>{card.revenue.beat ? '✅' : '❌'}</span>
-            )}
-          </span>
-          {card.revenue.estimate != null && (
-            <span style={{ fontSize: 11, color: '#444' }}>צפי {fmtRevenue(card.revenue.estimate)}</span>
-          )}
-        </div>
-
-        {/* EPS */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <span style={{ fontSize: 11, color: '#555' }}>EPS</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#E0E0E0', fontVariantNumeric: 'tabular-nums' }}>
-              ${fmt(card.eps.actual)}
-            </span>
-            {card.eps.estimate != null && verified && (
-              <span style={{ fontSize: 13 }}>{card.eps.beat ? '✅' : '❌'}</span>
-            )}
-          </span>
-          {card.eps.estimate != null && (
-            <span style={{ fontSize: 11, color: '#444' }}>צפי ${fmt(card.eps.estimate)}</span>
-          )}
-        </div>
-
-        {/* מרווח + תגובת שוק */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {card.gross_margin_pct != null && (
-            <>
-              <span style={{ fontSize: 11, color: '#555' }}>מרווח גולמי</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: '#E0E0E0', fontVariantNumeric: 'tabular-nums' }}>
-                {fmt(card.gross_margin_pct, 1)}%
-              </span>
-            </>
-          )}
-          {reactionN != null && (
-            <span style={{ fontSize: 12, color: reactionN >= 0 ? '#00DC82' : '#FF5A5A', fontWeight: 600, marginTop: card.gross_margin_pct != null ? 2 : 0 }}>
-              תגובה: {reactionN >= 0 ? '+' : ''}{reactionN.toFixed(1)}%
-            </span>
-          )}
-        </div>
+      {/* ── HERO METRICS ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 8 }}>
+        <MetricCol
+          label="הכנסות"
+          rawValue={safeNum(card.revenue.actual)}
+          fmtFn={v => v >= 1 ? `$${v.toFixed(2)}B` : `$${(v * 1000).toFixed(0)}M`}
+          estimate={card.revenue.estimate != null ? fmtRevenue(card.revenue.estimate) : null}
+          beat={card.revenue.beat}
+          verified={verified}
+        />
+        <MetricCol
+          label="EPS"
+          rawValue={safeNum(card.eps.actual)}
+          fmtFn={v => `$${v.toFixed(2)}`}
+          estimate={card.eps.estimate != null ? `$${fmt(card.eps.estimate)}` : null}
+          beat={card.eps.beat}
+          verified={verified}
+        />
+        <MetricCol
+          label={card.gross_margin_pct != null ? 'מרווח גולמי' : 'תגובת שוק'}
+          rawValue={card.gross_margin_pct != null ? safeNum(card.gross_margin_pct) : reactionN}
+          fmtFn={v => {
+            if (card.gross_margin_pct != null) return `${v.toFixed(1)}%`
+            return `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
+          }}
+          verified={verified}
+        />
       </div>
 
-      {/* ── Guidance ── */}
-      {card.guidance_next_quarter && (
-        <>
-          <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>תחזית הרבעון הבא:</div>
-          <div style={{ fontSize: 13, color: '#888', marginBottom: 12, direction: 'ltr', textAlign: 'left' }}>
-            {card.guidance_next_quarter}
-          </div>
-        </>
+      {/* Stock reaction below grid if margin also shown */}
+      {card.gross_margin_pct != null && reactionN != null && (
+        <div style={{
+          fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600,
+          color: reactionN >= 0 ? '#00ff87' : '#ff3b3b',
+          marginBottom: 12, direction: 'rtl',
+        }}>
+          תגובת שוק: {reactionN >= 0 ? '+' : ''}{reactionN.toFixed(1)}%
+        </div>
       )}
 
-      <Divider />
+      {/* ── DIVIDER ── */}
+      <div style={{ borderTop: '1px solid #111111', margin: '16px 0' }} />
 
-      {/* ── Hebrew summary — 2 lines max ── */}
+      {/* ── GUIDANCE ── */}
+      {card.guidance_next_quarter && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'baseline' }}>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: '#333', flexShrink: 0 }}>
+            תחזית Q2:
+          </span>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: '#888', direction: 'ltr', textAlign: 'left' }}>
+            {card.guidance_next_quarter}
+          </span>
+        </div>
+      )}
+
+      {/* ── SUMMARY ── */}
       {card.hebrew_summary && (
         <p style={{
-          fontSize: 14, color: '#AAAAAA', lineHeight: 1.6,
-          margin: '0 0 12px', textAlign: 'right',
-          display: '-webkit-box', WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical', overflow: 'hidden',
-        }}>
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: 14, color: '#aaaaaa', lineHeight: 1.7,
+          margin: '0 0 20px', textAlign: 'right',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical' as const,
+          overflow: 'hidden',
+          WebkitMaskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)',
+          maskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)',
+        } as React.CSSProperties}>
           {card.hebrew_summary}
         </p>
       )}
 
-      {/* ── Investor call bullets ── */}
+      {/* ── INVESTOR CALL ── */}
       {card.hebrew_call_highlights.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 12, color: '#555', marginBottom: 5 }}>שיחת משקיעים:</div>
-          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {card.hebrew_call_highlights.map((b, i) => (
-              <li key={i} style={{ fontSize: 13, color: '#B0B0B0', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                <span style={{ color: '#3A3A3A', flexShrink: 0 }}>-</span>
-                <span>{b}</span>
-              </li>
-            ))}
-          </ul>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: 10, color: '#333',
+            textTransform: 'uppercase', letterSpacing: '3px',
+            marginBottom: 12,
+          }}>
+            שיחת משקיעים
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {card.hebrew_call_highlights.map((b, i) => <CallItem key={i} text={b} />)}
+          </div>
         </div>
       )}
 
-      <Divider />
+      {/* ── DIVIDER ── */}
+      <div style={{ borderTop: '1px solid #111111', margin: '0 0 16px' }} />
 
-      {/* ── Thesis pill (bottom right) + sources ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-        {sources.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {sources.slice(0, 3).map((s, i) => (
+      {/* ── BOTTOM ROW ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          {sources.slice(0, 4).map((s, i) => (
+            <span key={i}>
               <a
-                key={i} href={s} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: 11, color: '#333', textDecoration: 'none' }}
-                onMouseEnter={e => (e.currentTarget.style.color = '#666')}
-                onMouseLeave={e => (e.currentTarget.style.color = '#333')}
+                href={s} target="_blank" rel="noopener noreferrer"
+                style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: '#2a2a2a', textDecoration: 'none', transition: 'color 120ms' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#555')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#2a2a2a')}
               >
                 {sourceDomain(s)}
               </a>
-            ))}
-          </div>
-        )}
+              {i < Math.min(sources.length, 4) - 1 && (
+                <span style={{ color: '#222', marginLeft: 4 }}>,</span>
+              )}
+            </span>
+          ))}
+        </div>
         <span style={{
+          fontFamily: "'DM Sans', sans-serif",
           fontSize: 12, fontWeight: 600,
-          color: thesis.color, background: thesis.bg,
-          padding: '3px 10px', borderRadius: 99,
-          marginRight: sources.length ? 0 : 'auto',
+          color: th.accent, background: th.bg, border: `1px solid ${th.border}`,
+          borderRadius: 20, padding: '4px 14px',
+          display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
         }}>
-          תזה: {thesis.label}
+          {th.label} {th.icon}
         </span>
       </div>
-
     </div>
   )
 }
@@ -353,32 +394,26 @@ function EarningCard({ card }: { card: EarningsCard }) {
 
 export function EarningsPanel({ cards, onRefresh, loading }: Props) {
   return (
-    <div style={{
-      background: '#0E0E0E',
-      border: '1px solid #1C1C1C',
-      borderRadius: 16,
-      overflow: 'hidden',
-    }}>
+    <div style={{ background: '#0E0E0E', border: '1px solid #1C1C1C', borderRadius: 16, overflow: 'hidden' }}>
       <div style={{
-        borderBottom: '1px solid #1C1C1C',
-        padding: '16px 22px',
+        borderBottom: '1px solid #1C1C1C', padding: '16px 22px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <span style={{ fontSize: 17, fontWeight: 600, color: '#E8E8E8', letterSpacing: '-0.01em' }}>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 17, fontWeight: 600, color: '#E8E8E8', letterSpacing: '-0.01em' }}>
             רווחים
           </span>
           {!loading && cards.length > 0 && (
-            <span style={{ fontSize: 13, color: '#555' }}>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: '#555' }}>
               {cards.filter(c => c.date).length} חברות
             </span>
           )}
         </div>
         <button
-          onClick={onRefresh}
-          disabled={loading}
+          onClick={onRefresh} disabled={loading}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
+            fontFamily: "'DM Sans', sans-serif",
             color: loading ? '#444' : '#909090', fontSize: 13, cursor: loading ? 'default' : 'pointer',
             background: '#161616', border: '1px solid #363636',
             padding: '7px 14px', borderRadius: 8, transition: 'color 0.12s, border-color 0.12s',
@@ -393,21 +428,25 @@ export function EarningsPanel({ cards, onRefresh, loading }: Props) {
 
       <div style={{ padding: '20px 22px' }}>
         {loading && cards.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '32px 0', color: '#333', fontSize: 14 }}>
+          <div style={{ textAlign: 'center', padding: '32px 0', color: '#333', fontFamily: "'DM Sans', sans-serif", fontSize: 14 }}>
             טוען נתוני רווחים…
           </div>
         ) : cards.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '32px 0', color: '#333', fontSize: 14 }}>
+          <div style={{ textAlign: 'center', padding: '32px 0', color: '#333', fontFamily: "'DM Sans', sans-serif", fontSize: 14 }}>
             אין דיווחי רווחים בחלון 90 הימים האחרונים
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {cards.map(card => <EarningCard key={card.ticker} card={card} />)}
           </div>
         )}
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
+        @keyframes cardMount { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   )
 }
