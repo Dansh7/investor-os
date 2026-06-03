@@ -15,7 +15,6 @@ function getSupabase() {
 interface NewsRow {
   id: string
   ticker: string | null
-  hebrew_title: string | null
   summary: string | null
   source: string | null
   published_at: string | null
@@ -339,8 +338,8 @@ function MarketNewsCard() {
   useEffect(() => {
     getSupabase()
       .from('news_items')
-      .select('id, ticker, hebrew_title, summary, source, published_at, thesis_impact')
-      .in('action_type', ['immediate', 'daily'])
+      .select('id, ticker, summary, source, published_at, thesis_impact')
+      .in('action_type', ['immediate', 'daily', 'weekly'])
       .order('published_at', { ascending: false })
       .limit(3)
       .then(({ data }) => {
@@ -350,8 +349,7 @@ function MarketNewsCard() {
   }, [])
 
   const headline = (n: NewsRow) => {
-    if (n.hebrew_title?.trim()) return n.hebrew_title.trim()
-    if (n.summary?.trim()) return n.summary.trim().slice(0, 60)
+    if (n.summary?.trim()) return n.summary.trim().slice(0, 80)
     return n.ticker ? `עדכון ${n.ticker}` : 'עדכון SEC'
   }
 
