@@ -20,6 +20,9 @@ import { WatchlistPanel, type WatchlistItem } from './components/WatchlistPanel'
 import { PolicyWidget, type PolicyRule, type PolicyObjective } from './components/PolicyWidget'
 import { NewsIntelligencePanel, type IntelItem } from './components/NewsIntelligencePanel'
 import { EarningsPanel, type EarningsCard } from './components/EarningsPanel'
+import { AppNavbar, type MainView } from './components/AppNavbar'
+import { AppSidebar } from './components/AppSidebar'
+import { OverviewSection } from './components/OverviewSection'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -238,6 +241,7 @@ export default function Dashboard() {
   const [prices, setPrices] = useState<Record<string, PriceData>>({})
   const [pricesLoading, setPricesLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('intelligence')
+  const [mainView, setMainView] = useState<MainView>('overview')
   const [lastSync, setLastSync] = useState<Date | null>(null)
 
   const [showModal, setShowModal] = useState(false)
@@ -289,7 +293,7 @@ export default function Dashboard() {
   const fetchPrices = useCallback(async (tickers: string[]) => {
     setPricesLoading(true)
     try {
-      const all = [...new Set([...tickers, 'ILS=X', '^VIX'])]
+      const all = [...new Set([...tickers, 'ILS=X', '^VIX', '^IXIC'])]
       const res = await fetch(`/api/prices?tickers=${all.join(',')}`)
       if (!res.ok) throw new Error('failed')
       const data: (PriceData & { ticker: string })[] = await res.json()
@@ -697,49 +701,46 @@ export default function Dashboard() {
     return dir * (va - vb)
   })
 
+  // Sync activeTab when navigating to a tab view from sidebar/navbar
+  useEffect(() => {
+    const tabViews: Tab[] = ['intelligence', 'earnings', 'thesis', 'risk', 'events', 'watchlist', 'policy']
+    if (tabViews.includes(mainView as Tab)) setActiveTab(mainView as Tab)
+  }, [mainView])
+
+  const handleSetMainView = (v: MainView) => {
+    setMainView(v)
+    if (v === 'earnings' && holdings.length > 0) fetchEarningsData()
+  }
+
   return (
-    <div
-      className="min-h-screen antialiased"
-      style={{ background: '#080808', color: '#FFFFFF', fontFamily: 'var(--font-geist-sans), system-ui, sans-serif' }}
-    >
-      {/* ── Header ── */}
-      <DashboardHeader
-        ilsRate={ilsRate}
-        ilsChangePercent={ilsChangePercent}
-        currency={currency}
-        setCurrency={setCurrency}
-        pricesLoading={pricesLoading}
-      />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', background: '#0a0a0f', color: '#FFFFFF', fontFamily: 'var(--font-dm-sans), system-ui, sans-serif' }}>
 
-      {/* ── Dashboard Summary: 3 cards + connection bar ── */}
-      <DashboardSummary
-        vix={vixValue}
-        vixChange={vixChange}
-        vixChangePct={vixChangePct}
-        totalValue={total}
-        investedValue={invested}
-        cashPct={cashPct}
-        todayPnL={todayPnL}
-        todayPnLPct={todayPnLPct}
-        loading={loading}
-        hasPrices={hasPrices}
-        formatAmount={fmtAmount}
-        currency={currency}
-        criticalAlerts={criticalAlerts}
-        warningAlerts={warningAlerts}
-        totalAlerts={criticalAlerts + warningAlerts}
-        holdingsCount={holdings.length}
-        lastSync={lastSync}
-        minCashPct={policy?.min_cash_pct}
-        maxCashPct={policy?.max_cash_pct}
-        exposureData={exposureData}
-      />
+      {/* ── Top Navbar ── */}
+      <AppNavbar mainView={mainView} setMainView={handleSetMainView} />
 
-      {/* ── Main content ── */}
-      <div className="max-w-[1800px] mx-auto px-2 sm:px-4 py-10" style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+      {/* ── Body: sidebar + main ── */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <AppSidebar mainView={mainView} setMainView={handleSetMainView} nasdaq={prices['^IXIC'] as { current_price: number | null; change_percent: number | null; change: number | null } | undefined} />
 
-        {/* 2. Holdings — premium portfolio table */}
-        <div style={{ background: '#0E0E0E', border: '1px solid #1C1C1C', borderRadius: 16, overflow: 'hidden' }}>
+        <main style={{ flex: 1, overflowY: 'auto', background: '#0a0a0f' }}>
+
+          {/* ── Overview section (top cards + AI row) ── */}
+          {mainView === 'overview' && (
+            <OverviewSection
+              total={total} invested={invested} cash={cash} cashPct={cashPct}
+              todayPnL={todayPnL} todayPnLPct={todayPnLPct} holdingsCount={holdings.length}
+              exposureData={exposureData} vixValue={vixValue} vixChangePct={vixChangePct}
+              intelItems={intelItems} sortedRows={sortedRows} newsItems={newsItems}
+              fmtAmount={fmtAmount}
+            />
+          )}
+
+          {/* ── Content area ── */}
+          <div style={{ padding: mainView === 'overview' ? '0 28px 32px' : '28px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+        {/* Holdings table — shown in overview and holdings view */}
+        {(mainView === 'overview' || mainView === 'holdings') && (
+        <div style={{ background: '#111118', border: '1px solid #1a1a28', borderRadius: 16, overflow: 'hidden' }}>
 
           {/* Table header bar */}
           <div style={{ borderBottom: '1px solid #1C1C1C', padding: '16px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1204,88 +1205,70 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* 3. AI Intelligence Panel */}
-        <NewsIntelligencePanel
-          items={intelItems}
-          loading={intelLoading}
-          onRefresh={() => {
-            const changes: Record<string, number> = {}
-            for (const h of holdings) {
-              const cp = prices[h.ticker]?.change_percent
-              if (cp != null) changes[h.ticker] = cp
-            }
-            fetchNewsIntel(true, changes)
-          }}
-        />
+        )} {/* end holdings table conditional */}
 
-        {/* 4. Critical Today — full width feed below holdings */}
-        <AttentionQueue alerts={alerts} newsItems={newsItems} />
+        {/* AI Intelligence Panel — overview only */}
+        {mainView === 'overview' && (
+          <NewsIntelligencePanel
+            items={intelItems}
+            loading={intelLoading}
+            onRefresh={() => {
+              const changes: Record<string, number> = {}
+              for (const h of holdings) {
+                const cp = prices[h.ticker]?.change_percent
+                if (cp != null) changes[h.ticker] = cp
+              }
+              fetchNewsIntel(true, changes)
+            }}
+          />
+        )}
 
-        {/* 4. Tabs */}
-        <div>
-          <div
-            className="flex overflow-x-auto"
-            style={{ borderBottom: '1px solid #1C1C1C', marginBottom: 28 }}
-          >
-            {TABS.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className="whitespace-nowrap flex-shrink-0 transition-colors"
-                style={{
-                  padding: '13px 22px',
-                  fontSize: 14,
-                  fontWeight: activeTab === tab.id ? 600 : 400,
-                  letterSpacing: '-0.01em',
-                  color: activeTab === tab.id ? '#F0F0F0' : '#404040',
-                  borderBottom: `2px solid ${activeTab === tab.id ? '#E0E0E0' : 'transparent'}`,
-                  background: activeTab === tab.id ? 'rgba(255,255,255,0.04)' : 'transparent',
-                  marginBottom: -1,
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
+        {/* Attention Queue — overview only */}
+        {mainView === 'overview' && (
+          <AttentionQueue alerts={alerts} newsItems={newsItems} />
+        )}
+
+        {/* ── Dedicated views for non-overview navigation ── */}
+        {mainView === 'intelligence' && <NewsIntelligence items={newsItems} />}
+
+        {mainView === 'earnings' && (
+          <EarningsPanel
+            cards={earningsCards}
+            loading={earningsLoading}
+            onRefresh={() => fetchEarningsData(true)}
+          />
+        )}
+
+        {mainView === 'thesis' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <ThesisMonitor holdings={holdingsWithWeights as ThesisHolding[]} newsItems={newsItems} />
+            <ConvictionMatrix holdings={holdingsWithWeights} cashPct={cashPct} />
           </div>
+        )}
 
-          {/* Tab content */}
-          {activeTab === 'intelligence' && (
-            <NewsIntelligence items={newsItems} />
-          )}
-          {activeTab === 'earnings' && (
-            <EarningsPanel
-              cards={earningsCards}
-              loading={earningsLoading}
-              onRefresh={() => fetchEarningsData(true)}
-            />
-          )}
-          {activeTab === 'thesis' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <ThesisMonitor holdings={holdingsWithWeights as ThesisHolding[]} newsItems={newsItems} />
-              <ConvictionMatrix holdings={holdingsWithWeights} cashPct={cashPct} />
-            </div>
-          )}
-          {activeTab === 'risk' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <RiskMonitor alerts={alerts} onStatusChange={updateAlertStatus} />
-              <DecisionQueue holdings={holdingsWithWeights} alerts={alerts} intelItems={intelItems} />
-            </div>
-          )}
-          {activeTab === 'events' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <UpcomingTimeline events={events} />
-              <UpcomingEvents events={events as CalendarEvent[]} />
-            </div>
-          )}
-          {activeTab === 'watchlist' && (
-            <WatchlistPanel items={watchlist} />
-          )}
-          {activeTab === 'policy' && (
-            <PolicyWidget policy={policy} rules={rules} objectives={objectives} />
-          )}
-        </div>
+        {mainView === 'risk' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <RiskMonitor alerts={alerts} onStatusChange={updateAlertStatus} />
+            <DecisionQueue holdings={holdingsWithWeights} alerts={alerts} intelItems={intelItems} />
+          </div>
+        )}
 
-      </div>
+        {mainView === 'events' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <UpcomingTimeline events={events} />
+            <UpcomingEvents events={events as CalendarEvent[]} />
+          </div>
+        )}
+
+        {mainView === 'watchlist' && <WatchlistPanel items={watchlist} />}
+
+        {mainView === 'policy' && (
+          <PolicyWidget policy={policy} rules={rules} objectives={objectives} />
+        )}
+
+          </div> {/* end content area padding div */}
+        </main>
+      </div> {/* end body flex */}
 
       {/* Add Stock Modal */}
       {showModal && (
