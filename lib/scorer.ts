@@ -1,5 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { createClient } from '@supabase/supabase-js'
 import type { PerplexityResult } from './perplexity'
+
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return null
+  return createClient(url, key)
+}
 
 const MODEL = 'claude-haiku-4-5-20251001'
 
@@ -183,13 +191,30 @@ Score this news for a stock investor and translate it to Hebrew. Be precise — 
       (inputTokens  / 1_000_000) * COST_PER_M_INPUT +
       (outputTokens / 1_000_000) * COST_PER_M_OUTPUT
 
-    const routing = computeRouting(portfolioImpact, thesisImpact, urgency, importance)
+    const routing     = computeRouting(portfolioImpact, thesisImpact, urgency, importance)
+    const hebrewTitle   = inp.hebrew_title.slice(0, 80)
+    const hebrewSummary = inp.hebrew_summary.slice(0, 300)
 
     console.log(
       `[scorer] ${ticker} — imp:${importance} port:${portfolioImpact} urg:${urgency} ` +
       `conf:${confidence} thesis:${thesisImpact} action:${actionType} ` +
       `routing:${routing} in:${inputTokens} out:${outputTokens} est:$${estimatedCostUsd.toFixed(5)}`
     )
+
+    // Back-fill hebrew_title + hebrew_summary into any matching news_items rows
+    const sb      = getSupabase()
+    const cutoff  = new Date(Date.now() - 7 * 86_400_000).toISOString()
+    if (sb && hebrewTitle) {
+      sb.from('news_items')
+        .update({ hebrew_title: hebrewTitle, hebrew_summary: hebrewSummary })
+        .eq('ticker', ticker)
+        .gte('published_at', cutoff)
+        .is('hebrew_title', null)
+        .then(({ error, count }) => {
+          if (error) console.warn(`[scorer] news_items update failed for ${ticker}:`, error.message)
+          else console.log(`[scorer] hebrew back-fill: ${ticker} — ${count ?? '?'} rows updated`)
+        })
+    }
 
     return {
       importance_score:       importance,
@@ -198,8 +223,8 @@ Score this news for a stock investor and translate it to Hebrew. Be precise — 
       confidence_score:       confidence,
       thesis_impact:          thesisImpact,
       action_type:            actionType,
-      hebrew_title:           inp.hebrew_title.slice(0, 80),
-      hebrew_summary:         inp.hebrew_summary.slice(0, 300),
+      hebrew_title:           hebrewTitle,
+      hebrew_summary:         hebrewSummary,
       routing,
       usage: { inputTokens, outputTokens, estimatedCostUsd },
     }
@@ -208,4 +233,72 @@ Score this news for a stock investor and translate it to Hebrew. Be precise — 
     console.error(`[scorer] failed for ${ticker}:`, message)
     return { ...empty, error: message }
   }
+}
+
+// ─── Hebrew back-fill for EDGAR pipeline ─────────────────────────────────────
+// Translates English summary → hebrew_title + hebrew_summary for news_items
+// that were written by the EDGAR pipeline without Hebrew content.
+
+const TRANSLATE_TOOL: Anthropic.Messages.Tool = {
+  name: 'translate_to_hebrew',
+  description: 'Translate an English news summary to Hebrew for an Israeli investor.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      hebrew_title: {
+        type: 'string',
+        description: 'Punchy Hebrew headline, max 80 characters.',
+      },
+      hebrew_summary: {
+        type: 'string',
+        description: 'Hebrew investor summary, max 200 characters. What happened and why it matters.',
+      },
+    },
+    required: ['hebrew_title', 'hebrew_summary'],
+  },
+}
+
+export async function backfillHebrew(tickers: string[]): Promise<number> {
+  const sb = getSupabase()
+  if (!sb || tickers.length === 0) return 0
+
+  const cutoff = new Date(Date.now() - 7 * 86_400_000).toISOString()
+
+  const { data: rows } = await sb
+    .from('news_items')
+    .select('id, ticker, headline, summary')
+    .in('ticker', tickers)
+    .gte('published_at', cutoff)
+    .is('hebrew_title', null)
+    .not('action_type', 'eq', 'discard')
+    .limit(20)
+
+  if (!rows?.length) return 0
+
+  let updated = 0
+  for (const row of rows) {
+    const text = row.summary || row.headline
+    if (!text) continue
+    try {
+      const msg = await getClient().messages.create({
+        model: MODEL,
+        max_tokens: 300,
+        tools: [TRANSLATE_TOOL],
+        tool_choice: { type: 'tool', name: 'translate_to_hebrew' },
+        messages: [{ role: 'user', content: `Translate this news summary for ${row.ticker} to Hebrew:\n${text.slice(0, 600)}` }],
+      })
+      const block = msg.content.find(b => b.type === 'tool_use')
+      if (!block || block.type !== 'tool_use') continue
+      const { hebrew_title, hebrew_summary } = block.input as { hebrew_title: string; hebrew_summary: string }
+      const { error } = await sb
+        .from('news_items')
+        .update({ hebrew_title: hebrew_title.slice(0, 80), hebrew_summary: hebrew_summary.slice(0, 200) })
+        .eq('id', row.id)
+      if (!error) {
+        updated++
+        console.log(`  [hebrew-fill] ${row.ticker}: ${hebrew_title}`)
+      }
+    } catch { /* skip individual failures */ }
+  }
+  return updated
 }

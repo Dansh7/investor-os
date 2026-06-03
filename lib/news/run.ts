@@ -3,6 +3,7 @@ import { fetchEdgarFilings } from './sources/edgar'
 import { syncYahooEvents } from './sources/yahoo-events'
 import { discoverPerplexityNews } from './sources/perplexity'
 import { scoreArticles } from './pipeline/scorer'
+import { backfillHebrew } from '../scorer'
 import { deduplicateAndCluster } from './pipeline/deduplicator'
 import { routeArticles } from './pipeline/router'
 import type { Holding, RawArticle, PipelineResult } from './types'
@@ -109,6 +110,11 @@ export async function runNewsPipeline(opts: RunOptions = {}): Promise<PipelineRe
   const routerOutput = await routeArticles(dedupResults, portfolioId, supabase)
   console.log(`  immediate=${routerOutput.routing.immediate} daily=${routerOutput.routing.daily} weekly=${routerOutput.routing.weekly} discard=${routerOutput.routing.discard}`)
   console.log(`  Stored: ${routerOutput.stored}, Alerts: ${routerOutput.alerts}, Duplicates skipped: ${routerOutput.duplicates}`)
+
+  // ── 7. Hebrew back-fill ───────────────────────────────────────────────────────
+  console.log('\n[HEBREW] Translating new items...')
+  const hebrewUpdated = await backfillHebrew(holdings.map(h => h.ticker))
+  console.log(`  ${hebrewUpdated} rows updated with Hebrew content`)
 
   return {
     articles_fetched: rawArticles.length,
