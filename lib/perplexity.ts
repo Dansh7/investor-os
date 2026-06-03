@@ -16,7 +16,8 @@ export interface PerplexityResult {
 
 export async function searchNews(
   ticker: string,
-  companyName: string
+  companyName: string,
+  dayChangePct?: number | null
 ): Promise<PerplexityResult> {
   const apiKey = process.env.PERPLEXITY_API_KEY
   if (!apiKey) {
@@ -24,12 +25,23 @@ export async function searchNews(
   }
 
   const today = new Date().toISOString().split('T')[0]
-  const query =
-    `What happened with ${ticker} (${companyName}) in the last 24 hours? Date today is ${today}. ` +
-    `Focus ONLY on: price movements today, breaking news today, analyst actions today, macro events affecting this stock today. ` +
-    `If nothing happened today specifically, say 'no material news today'. ` +
-    `Do NOT summarize old earnings reports or historical context. ` +
-    `Cite sources with dates.`
+  const moveLine = dayChangePct != null && Math.abs(dayChangePct) >= 0.5
+    ? `The stock is ${dayChangePct >= 0 ? 'UP' : 'DOWN'} ${Math.abs(dayChangePct).toFixed(2)}% today — explain exactly why.`
+    : ''
+
+  const query = [
+    `Today is ${today}.`,
+    `${ticker} (${companyName}) stock moved significantly today.`,
+    moveLine,
+    `Find:`,
+    `1. Exact price change % today`,
+    `2. Why did it move? (news, macro, sector, earnings, analyst action)`,
+    `3. Any breaking news in last 24h`,
+    `4. What are traders/analysts saying today specifically`,
+    `Search: '${ticker} stock today ${today}' AND '${ticker} news today' AND '${ticker} price drop OR rally today'`,
+    `Be specific. If you find nothing from today, say exactly that.`,
+    `Cite all sources with dates.`,
+  ].filter(Boolean).join('\n')
 
   let res: Response
   try {

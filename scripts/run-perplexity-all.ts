@@ -3,13 +3,29 @@
  * Runs the Perplexity + Claude intelligence pipeline for ALL holdings,
  * bypassing cache, and writes results to news_items with Hebrew content.
  *
- * Usage: npx tsx --env-file=.env.local scripts/run-perplexity-all.ts
+ * Usage:
+ *   npx tsx --env-file=.env.local scripts/run-perplexity-all.ts
+ *   npx tsx --env-file=.env.local scripts/run-perplexity-all.ts --tickers PLTR,TSLA,AMZN
  */
 
 import { createClient } from '@supabase/supabase-js'
+import yahooFinance from 'yahoo-finance2'
 import { searchNews } from '../lib/perplexity'
 import { scoreNews } from '../lib/scorer'
 import { validate } from '../lib/validator'
+
+// ─── Day % from Yahoo Finance ─────────────────────────────────────────────────
+
+async function fetchDayChange(ticker: string): Promise<number | null> {
+  try {
+    const q = await yahooFinance.quote(ticker)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pct = (q as any)?.regularMarketChangePercent
+    return typeof pct === 'number' ? pct : null
+  } catch {
+    return null
+  }
+}
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
 
@@ -45,13 +61,20 @@ async function main() {
     .order('ticker')
   if (hErr || !holdings?.length) throw new Error(`No holdings: ${hErr?.message}`)
 
-  const knownTickers = holdings.map(h => h.ticker)
-  console.log(`\nHoldings (${holdings.length}): ${knownTickers.join(', ')}\n`)
+  // Filter by --tickers flag if provided
+  const tickerArg = process.argv.find(a => a.startsWith('--tickers='))
+    ?? (process.argv.includes('--tickers') ? process.argv[process.argv.indexOf('--tickers') + 1] : undefined)
+  const filterSet = tickerArg
+    ? new Set(tickerArg.replace('--tickers=', '').split(',').map(t => t.trim().toUpperCase()))
+    : null
+  const filtered = filterSet ? holdings.filter(h => filterSet.has(h.ticker)) : holdings
 
-  // 2. Clear perplexity_cache for all tickers so fetchWithGate does a fresh call
-  const cacheKeys = knownTickers.map(t => t)
-  await db.from('perplexity_cache').delete().in('ticker', cacheKeys)
-  console.log(`Cache cleared for ${holdings.length} tickers.\n`)
+  const knownTickers = holdings.map(h => h.ticker)
+  console.log(`\nRunning for (${filtered.length}): ${filtered.map(h => h.ticker).join(', ')}\n`)
+
+  // 2. Clear perplexity_cache for selected tickers
+  await db.from('perplexity_cache').delete().in('ticker', filtered.map(h => h.ticker))
+  console.log(`Cache cleared for ${filtered.length} tickers.\n`)
 
   // 3. Process each holding
   const results: {
@@ -65,13 +88,22 @@ async function main() {
 
   let totalCost = 0
 
-  for (const h of holdings) {
+  for (const h of filtered) {
     const { ticker, company_name } = h
-    process.stdout.write(`[${ticker.padEnd(5)}] Fetching… `)
+    process.stdout.write(`[${ticker.padEnd(5)}] `)
+
+    // 3a. Fetch real day% from Yahoo Finance
+    const dayChangePct = await fetchDayChange(ticker)
+    if (dayChangePct != null) {
+      const sign = dayChangePct >= 0 ? '+' : ''
+      process.stdout.write(`${sign}${dayChangePct.toFixed(2)}% today | Fetching… `)
+    } else {
+      process.stdout.write(`Fetching… `)
+    }
 
     try {
-      // 3a. Perplexity
-      const perplexity = await searchNews(ticker, company_name)
+      // 3b. Perplexity — pass day change so model knows there was movement
+      const perplexity = await searchNews(ticker, company_name, dayChangePct)
       if (perplexity.error || !perplexity.summary) {
         console.log(`⚠ Perplexity error: ${perplexity.error}`)
         results.push({ ticker, routing: 'skip', cost: 0, stored: false, title: '—', error: perplexity.error })
@@ -189,7 +221,7 @@ async function main() {
   const byRoute  = { immediate: 0, daily: 0, weekly: 0, ignore: 0, skip: 0 } as Record<string, number>
   for (const r of results) byRoute[r.routing] = (byRoute[r.routing] ?? 0) + 1
 
-  console.log(`\n  Stored  : ${stored.length} / ${holdings.length}`)
+  console.log(`\n  Stored  : ${stored.length} / ${filtered.length}`)
   console.log(`  Skipped : ${skipped.length}  (low signal)`)
   console.log(`  Errors  : ${errored.length}`)
   console.log(`  Total cost: $${totalCost.toFixed(4)}`)
