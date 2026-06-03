@@ -23,9 +23,13 @@ export async function searchNews(
     return { summary: '', sources: [], raw: '', error: 'PERPLEXITY_API_KEY not set' }
   }
 
+  const today = new Date().toISOString().split('T')[0]
   const query =
-    `What happened today with ${ticker} (${companyName}) that matters to a stock investor? ` +
-    `Include earnings, news, analyst actions, executive statements, macro impact. Cite sources.`
+    `What happened with ${ticker} (${companyName}) in the last 24 hours? Date today is ${today}. ` +
+    `Focus ONLY on: price movements today, breaking news today, analyst actions today, macro events affecting this stock today. ` +
+    `If nothing happened today specifically, say 'no material news today'. ` +
+    `Do NOT summarize old earnings reports or historical context. ` +
+    `Cite sources with dates.`
 
   let res: Response
   try {
