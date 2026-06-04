@@ -10,9 +10,21 @@
 
 import { createClient } from '@supabase/supabase-js'
 import yahooFinance from 'yahoo-finance2'
-import { searchNews } from '../lib/perplexity'
+import { searchNews, fetchMarketBriefing } from '../lib/perplexity'
 import { scoreNews } from '../lib/scorer'
 import { validate } from '../lib/validator'
+import Anthropic from '@anthropic-ai/sdk'
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+async function translateToHebrew(text: string): Promise<string> {
+  const msg = await anthropic.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 400,
+    messages: [{ role: 'user', content: `Translate this market briefing to Hebrew in 3 concise sentences for an Israeli investor. Focus on the most important market-moving points:\n\n${text.slice(0, 1500)}` }],
+  })
+  return msg.content[0].type === 'text' ? msg.content[0].text : ''
+}
 
 // ─── Day % from Yahoo Finance ─────────────────────────────────────────────────
 
@@ -158,6 +170,9 @@ async function main() {
         .limit(1)
         .maybeSingle()
 
+      // DB constraint only allows: supporting | weakening | breaking (not neutral)
+      const dbThesisImpact = scored.thesis_impact === 'neutral' ? null : scored.thesis_impact
+
       if (existing) {
         // Update existing row
         await db
@@ -170,7 +185,7 @@ async function main() {
             portfolio_impact_score: scored.portfolio_impact_score,
             urgency_score:          scored.urgency_score,
             confidence_score:       scored.confidence_score,
-            thesis_impact:          scored.thesis_impact,
+            thesis_impact:          dbThesisImpact,
             action_type:            validation.routing,
             sentiment:              'neutral',
           })
@@ -193,7 +208,7 @@ async function main() {
             portfolio_impact_score: scored.portfolio_impact_score,
             urgency_score:          scored.urgency_score,
             confidence_score:       scored.confidence_score,
-            thesis_impact:          scored.thesis_impact,
+            thesis_impact:          dbThesisImpact,
             action_type:            validation.routing,
             is_verified:            false,
             processed:              true,
@@ -222,6 +237,44 @@ async function main() {
   }
 
   // 4. Summary report
+  // ── Market briefing ────────────────────────────────────────────────────────
+  let briefingCost = 0
+  let briefingHebrew = ''
+  if (!filterSet) {
+    // Only run when processing all tickers (not a targeted --tickers run)
+    console.log('\n[MARKET] Fetching market-wide briefing…')
+    const briefingRaw = await fetchMarketBriefing()
+    briefingCost = briefingRaw.usage?.estimatedCostUsd ?? 0
+
+    if (!briefingRaw.error && briefingRaw.summary) {
+      briefingHebrew = await translateToHebrew(briefingRaw.summary)
+      const today = new Date().toISOString().split('T')[0]
+
+      const { error } = await db
+        .from('market_briefings')
+        .upsert({
+          date:           today,
+          hebrew_summary: briefingHebrew,
+          raw_summary:    briefingRaw.summary.slice(0, 8000),
+          sources:        briefingRaw.sources.slice(0, 10),
+        }, { onConflict: 'date' })
+
+      if (error) console.warn(`  [MARKET] DB write failed: ${error.message}`)
+      else console.log(`  Stored market briefing for ${today} (${fmt(briefingCost)})`)
+
+      if (process.argv.includes('--raw')) {
+        console.log('\n' + sep)
+        console.log('MARKET BRIEFING (raw excerpt)')
+        console.log(sep)
+        console.log(briefingRaw.summary.slice(0, 800) + '…')
+        console.log(sep)
+      }
+    } else {
+      console.warn(`  [MARKET] Error: ${briefingRaw.error}`)
+    }
+    totalCost += briefingCost
+  }
+
   console.log('\n' + sep2)
   console.log('  RESULTS')
   console.log(sep2)
@@ -232,6 +285,13 @@ async function main() {
   const byRoute  = { immediate: 0, daily: 0, weekly: 0, ignore: 0, skip: 0 } as Record<string, number>
   for (const r of results) byRoute[r.routing] = (byRoute[r.routing] ?? 0) + 1
 
+  if (briefingHebrew) {
+    console.log('\n' + sep)
+    console.log('  MARKET BRIEFING (Hebrew)')
+    console.log(sep)
+    console.log(briefingHebrew)
+    console.log(sep)
+  }
   console.log(`\n  Stored  : ${stored.length} / ${filtered.length}`)
   console.log(`  Skipped : ${skipped.length}  (low signal)`)
   console.log(`  Errors  : ${errored.length}`)
